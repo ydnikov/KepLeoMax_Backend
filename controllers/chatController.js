@@ -28,7 +28,7 @@ export const getChat = async (req, res) => {
     chat.other_user = otherUser;
 
     // set last_message
-    const lastMessage = (await messagesModel.getAllMessagesByChatId(chat.id, 1, 0))[0];
+    const lastMessage = (await messagesModel.getAllMessagesByChatId(chat.id, 1, null))[0];
 
     // set unread_count
     if (lastMessage) {

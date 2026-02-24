@@ -58,3 +58,7 @@ export const getChatOfUsers = async (userIds) => {
         return result.rows[0];
     }
 }
+
+export const deleteChatById = async (chatId) => {
+    await pool.query('DELETE FROM chats WHERE chat_id = $1', [chatId]);
+}

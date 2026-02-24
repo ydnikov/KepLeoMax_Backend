@@ -40,7 +40,7 @@ export const searchUsers = async (req, res) => {
     const userId = req.userId;
     const search = req.query.search;
     const limit = req.query.limit?.trim() ?? 10;
-    const cursor = req.query.cursor?.trim() ?? 0;
+    const cursor = req.query.cursor?.trim() ?? 0; // int, userId
 
     // validations
     if (search === undefined) {

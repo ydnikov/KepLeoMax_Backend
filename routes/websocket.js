@@ -37,7 +37,6 @@ const webSocket = (io, socket) => {
 
     socket.on('subscribe_on_online_status_updates', async (data) => {
         const ids = data.users_ids;
-        console.log(`subscribe_on_online_status_updates, userId: ${userId}, ids: ${ids}`);
 
         if (isNaN(ids) && Array.isArray(ids)) {
             for (const id in ids) {

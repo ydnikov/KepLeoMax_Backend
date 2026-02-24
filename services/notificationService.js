@@ -12,7 +12,7 @@ export const sendNotification = async (userId, title, body, externalData) => {
 
     tokens.forEach((token) => {
         const message = {
-            /// should be in data, not in notification to right handling background notifications
+            /// should be in the data, not in the notification for right handling background notifications
             data: {
                 ...externalData,
                 title: title,

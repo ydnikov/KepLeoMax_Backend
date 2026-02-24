@@ -63,7 +63,7 @@ export const getPostsByUserId = async (req, res) => {
     const userId = req.query.userId;
     const limit = req.query.limit?.trim() ?? 999;
     const offset = req.query.offset?.trim() ?? 0;
-    const beforeTime = req.query.before_time?.trim() ?? Date.now();
+    const cursor = req.query.cursor?.trim() ?? Date.now(); // int, created_at (works as before_time)
 
     // validations
     if (!userId) {
@@ -74,36 +74,36 @@ export const getPostsByUserId = async (req, res) => {
         return res.status(400).json({ message: 'limit must be int' });
     } else if (isNaN(offset)) {
         return res.status(400).json({ message: 'offset must be int' });
-    } else if (isNaN(beforeTime)) {
-        return res.status(400).json({ message: 'beforeTime must be int' });
+    } else if (isNaN(cursor)) {
+        return res.status(400).json({ message: 'cursor must be int' });
     }
 
     // get posts
-    let posts = await postsModel.getPostsByUserId(userId, limit, offset, beforeTime);
+    let posts = await postsModel.getPostsByUserId(userId, limit, offset, cursor);
     const user = convertUserToSend(await usersModel.getUserById(userId), req);
     posts.forEach(post => {
         post.user = user;
     });
 
-    res.status(200).json({ data: posts ?? [], limit: limit, offset: offset, before_time: beforeTime });
+    res.status(200).json({ data: posts ?? [], limit: limit, offset: offset, cursor: cursor });
 }
 
 export const getPosts = async (req, res) => {
     const limit = req.query.limit?.trim() ?? 999;
     const offset = req.query.offset?.trim() ?? 0;
-    const beforeTime = req.query.before_time?.trim() ?? Date.now();
+    const cursor = req.query.cursor?.trim() ?? Date.now(); // int, created_at (works as before_time)
 
     // validations
     if (isNaN(limit)) {
         return res.status(400).json({ message: 'limit must be int' });
     } else if (isNaN(offset)) {
         return res.status(400).json({ message: 'offset must be int' });
-    } else if (isNaN(beforeTime)) {
-        return res.status(400).json({ message: 'beforeTime must be int' });
+    } else if (isNaN(cursor)) {
+        return res.status(400).json({ message: 'cursor must be int' });
     }
 
     // get posts
-    let posts = await postsModel.getPosts(limit, offset, beforeTime);
+    let posts = await postsModel.getPosts(limit, offset, cursor);
     // set users
     const usersMap = new Map();
     for (let i = 0; i < posts.length; i++) {
@@ -114,7 +114,7 @@ export const getPosts = async (req, res) => {
         posts[i].user = usersMap.get(userId);
     }
 
-    res.status(200).json({ data: posts ?? [], limit: limit, offset: offset, before_time: beforeTime });
+    res.status(200).json({ data: posts ?? [], limit: limit, offset: offset, cursor: cursor });
 }
 
 export const deletePost = async (req, res) => {
