@@ -1,3 +1,4 @@
+import { endCall, sendAnswer, sendCameraStatus, sendICECandidate, sendOffer } from '../services/webRTCService.js';
 import { changeOnlineStatus as updateOnlineStatus, onDeleteMessage, onMessage, onMessageToAi, onReadAll, onReadBeforeTime, typingActivity } from '../services/websocketService.js';
 
 const webSocket = (io, socket) => {
@@ -53,6 +54,27 @@ const webSocket = (io, socket) => {
 
     socket.on('typing_activity_detected', async (data) => {
         typingActivity(io, data, userId);
+    });
+
+    /// WebRTC
+    socket.on('webrtc_send_offer', (data) => {
+        sendOffer(io, data, userId);
+    });
+
+    socket.on('webrtc_send_answer', (data) => {
+        sendAnswer(io, data, userId);
+    });
+
+    socket.on('webrtc_send_ice_candidate', (data) => {
+        sendICECandidate(io, data, userId);
+    });
+
+    socket.on('webrtc_send_camera_status', (data) => {
+        sendCameraStatus(io, data, userId);
+    });
+
+    socket.on('webrtc_end_call', (data) => {
+        endCall(io, data, userId);
     });
 
     socket.on('disconnect', () => {
