@@ -18,15 +18,19 @@ export const sendNotification = async (userId, title, body, externalData) => {
                 title: title,
                 body: body
             },
-            token: token.fcm_token,
             android: {
-                priority: 'high'
-            }
+                priority: 'high',
+                // notification: {
+                //     notification_priority: 'PRIORITY_MAX',
+                //     channel_id: 'high_importance_channel'
+                // }
+            },
+            token: token.fcm_token, 
         };
         getMessaging()
             .send(message)
             .then((response) => {
-                console.log("Successfully sent message:", response);
+                console.log(`Successfully sent message to userId ${userId}, type: ${externalData['type']}`);
             })
             .catch((error) => {
                 if (error.errorInfo.code == "messaging/registration-token-not-registered") {

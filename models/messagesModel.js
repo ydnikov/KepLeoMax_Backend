@@ -1,7 +1,7 @@
 import pool from "../db.js";
 
-export const createNewMessage = async (chatId, senderId, message) => {
-    const result = await pool.query('INSERT INTO messages (chat_id, sender_id, message, created_at) VALUES ($1, $2, $3, $4) RETURNING id', [chatId, senderId, message, Date.now()]);
+export const createNewMessage = async (chatId, senderId, message, type, isRead) => {
+    const result = await pool.query('INSERT INTO messages (chat_id, sender_id, message, type, is_read, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id', [chatId, senderId, message, type ?? 'message', isRead ?? false, Date.now()]);
     return result.rows[0].id;
 }
 

@@ -53,6 +53,7 @@ export const getChatOfUsers = async (userIds) => {
     if (result.rows.length === 0) {
         return null;
     } else {
+        // TODO id and chat_id are both passed, and they are the same, why?
         result.rows[0].id = result.rows[0].chat_id;
         result.rows[0].user_id = undefined;
         return result.rows[0];

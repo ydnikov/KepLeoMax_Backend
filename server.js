@@ -15,6 +15,7 @@ import filesRouter from './routes/files.js';
 import postsRouter from './routes/posts.js';
 import messagesRouter from './routes/messages.js';
 import chatsRouter from './routes/chats.js';
+import callsRouter from './routes/calls.js';
 import webSocketRouter from './routes/websocket.js';
 
 const PORT = process.env.PORT;
@@ -48,7 +49,9 @@ app.post('/setup', async (req, res) => {
     await pool.query('CREATE TABLE posts (id SERIAL PRIMARY KEY, user_id INT NOT NULL, content VARCHAR(4000) NOT NULL, images VARCHAR(32)[] NOT NULL, users_who_liked_ids INT[], created_at BIGINT NOT NULL, edited_at BIGINT)');
     
     await pool.query('CREATE TABLE chats (id SERIAL PRIMARY KEY, user_id INT NOT NULL, chat_id SERIAL NOT NULL)');
-    await pool.query('CREATE TABLE messages (id SERIAL PRIMARY KEY, chat_id INT NOT NULL, sender_id INT NOT NULL, message VARCHAR(4000) NOT NULL, is_read BOOLEAN DEFAULT FALSE NOT NULL, created_at BIGINT NOT NULL, edited_at BIGINT)');
+    await pool.query("CREATE TABLE messages (id SERIAL PRIMARY KEY, chat_id INT NOT NULL, sender_id INT NOT NULL, message VARCHAR(4000) NOT NULL, type TEXT NOT NULL DEFAULT 'message', is_read BOOLEAN DEFAULT FALSE NOT NULL, created_at BIGINT NOT NULL, edited_at BIGINT)");
+    // TODO index?
+    await pool.query('CREATE TABLE calls (id SERIAL PRIMARY KEY, caller_id INT NOT NULL, answerer_id INT NOT NULL, start_time BIGINT, end_time BIGINT, created_at BIGINT NOT NULL)');
 
     await pool.query('CREATE TABLE fcm_tokens (id SERIAL PRIMARY KEY, user_id INT, fcm_token TEXT UNIQUE)');
     await pool.query('CREATE TABLE refresh_tokens (id SERIAL PRIMARY KEY, user_id INT NOT NULL, token TEXT UNIQUE NOT NULL)');
@@ -70,6 +73,7 @@ app.use('/api/profile', profileRouter);
 app.use('/api/posts', postsRouter);
 app.use('/api/messages', messagesRouter);
 app.use('/api/chats', chatsRouter);
+app.use('/api/calls', callsRouter);
 
 // Error handlers
 app.use(notFound);
@@ -80,8 +84,9 @@ const expressServer = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`)
 });
 
-/// websocet
-const io = new Server(expressServer);
+// websocet
+// TODO make this export is not the best solution, but it's used in callsController
+export const io = new Server(expressServer);
 
 io.use(verifyWSJWT);
 

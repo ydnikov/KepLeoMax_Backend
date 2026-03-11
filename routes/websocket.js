@@ -16,6 +16,8 @@ const webSocket = (io, socket) => {
     socket.join(userId.toString());
 
     socket.on('message', async (data) => {
+        data['type'] = undefined;
+        data['call'] = undefined;
         onMessage(io, data, userId);
 
         if (data.recipient_id == process.env.CHAT_BOT_ID) {

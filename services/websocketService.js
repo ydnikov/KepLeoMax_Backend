@@ -2,6 +2,7 @@ import * as chatsModel from '../models/chatsModel.js';
 import * as messagesModel from '../models/messagesModel.js';
 import * as usersModel from '../models/usersModel.js';
 import * as onlinesModel from '../models/onlinesModel.js';
+import * as callsModel from '../models/callsModel.js';
 import { sendNotification } from '../services/notificationService.js';
 import { ask } from './aiService.js';
 import convertUserToSend from '../utills/convertUser.js';
@@ -71,7 +72,9 @@ export const onMessageToAi = async (io, data, userId) => {
 
 export const onMessage = async (io, data, userId) => {
     const otherUserId = data.recipient_id;
-    const message = data.message;
+    const call = data.call;
+    const message = call == null ? data.message : JSON.stringify(call);
+    const type = data.type;
     if (isNaN(otherUserId) || !message) {
         onError('Event: onMessage, otherUserId or message is missing');
         return;
@@ -88,7 +91,9 @@ export const onMessage = async (io, data, userId) => {
         chatId = chat.id;
     }
     console.log(`chat id: ${chatId}, userId: ${userId}, otherUserId: ${otherUserId}`);
-    const messageId = await messagesModel.createNewMessage(chatId, userId, message);
+    const callIsMissed = call && !call.start_time && call.end_time;
+    /// TODO wtf these 2 lines?
+    const messageId = await messagesModel.createNewMessage(chatId, userId, message, type, call != null && !callIsMissed);
     const newMessage = await messagesModel.getMessageById(messageId);
 
     newMessage.is_current_user = true;
@@ -106,13 +111,26 @@ export const onMessage = async (io, data, userId) => {
     }
 
     // send notification
-    const user = await usersModel.getUserById(userId);
-    sendNotification(otherUserId, user.username, newMessage.message, {
-        chat_id: chatId.toString(),
-        type: 'new',
-        ids: JSON.stringify([newMessage.id]),
-        other_user: JSON.stringify(convertUserToSend(user))
-    });
+    if (!call) {
+        const user = await usersModel.getUserById(userId);
+        sendNotification(otherUserId, user.username, newMessage.message, {
+            chat_id: chatId.toString(),
+            type: 'new',
+            ids: JSON.stringify([newMessage.id]),
+            other_user: JSON.stringify(convertUserToSend(user))
+        });
+    } else {
+        if (!call.start_time && call.end_time && call.notify_other_user) {
+            // send missed call notification
+            const user = await usersModel.getUserById(userId);
+            sendNotification(otherUserId, user.username, 'Missed call', {
+                chat_id: chatId.toString(),
+                type: 'new_missed_call',
+                ids: JSON.stringify([newMessage.id]),
+                other_user: JSON.stringify(convertUserToSend(user))
+            });
+        }
+    }
 }
 
 export const onDeleteMessage = async (io, data, userId) => {

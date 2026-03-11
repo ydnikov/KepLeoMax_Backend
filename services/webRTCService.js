@@ -1,16 +1,24 @@
-import { sendNotification } from "./notificationService.js";
 import * as usersModel from '../models/usersModel.js';
+import * as callsModel from '../models/callsModel.js';
+import { sendNotification } from "./notificationService.js";
 import convertUserToSend from "../utills/convertUser.js";
+import { onMessage } from './websocketService.js';
 
 export const sendOffer = async (io, data, userId) => {
     console.log(`send_offer`);
     const offer = data.offer; // contains sdp and type
     const toUserId = data.to_user_id;
 
-    io.in([toUserId.toString()]).emit('webrtc_offer', {
-        other_user_id: userId,
-        offer: offer
-    });
+    // const hasActiveCalls = await callsModel.checkNotEndedCallsOfEachUser(userId, toUserId);
+    // if (hasActiveCalls) {
+    //     io.in([userId.toString()]).emit('webrtc_end_call', {
+    //         other_user_id: toUserId,
+    //     });
+    //     endCall(io, data, userId);
+    //     return;
+    // }
+
+    await callsModel.insertNewCall(userId, toUserId);
 
     const user = await usersModel.getUserById(userId);
     sendNotification(toUserId, '', '', {
@@ -21,7 +29,7 @@ export const sendOffer = async (io, data, userId) => {
     });
 }
 
-export const sendAnswer = (io, data, userId) => {
+export const sendAnswer = async (io, data, userId) => {
     console.log(`send_answer`);
     const answer = data.answer; // contains sdp and type
     const toUserId = data.to_user_id;
@@ -30,6 +38,14 @@ export const sendAnswer = (io, data, userId) => {
         other_user_id: userId,
         answer: answer,
     });
+
+    const call = await callsModel.getPendingCallOfUsers(toUserId, userId);
+    if (!call) {
+        data.to_user_id = userId;
+        await endCall(io, data, data.to_user_id);
+        return;
+    }
+    await callsModel.setStartTime(call.id);
 }
 
 export const sendICECandidate = (io, data, userId) => {
@@ -54,18 +70,24 @@ export const sendCameraStatus = (io, data, userId) => {
 
 export const endCall = async (io, data, userId) => {
     const toUserId = data.to_user_id;
-    const markCallAsMissed = data.mark_call_as_missed;
     console.log(`end call, from: ${userId} to: ${toUserId}`);
 
     io.in([toUserId.toString()]).emit('webrtc_end_call', {
         other_user_id: userId,
     });
 
-    if (markCallAsMissed) {
-        const user = await usersModel.getUserById(userId);
-        sendNotification(toUserId, '', '', {
-            type: 'end_incoming_call',
-            other_user: JSON.stringify(convertUserToSend(user))
-        });
+    const call = await callsModel.getLastCallOfUsers(userId, toUserId);
+    if (call && !call.end_time) {
+        const endTime = await callsModel.setEndTimeTime(call.id);
+        call.end_time = endTime;
+
+        /// send message
+        call.notify_other_user = userId == call.caller_id;
+        const newData = {
+            recipient_id: call.answerer_id,
+            call: call,
+            type: 'call',
+        };
+        onMessage(io, newData, call.caller_id);
     }
 }
