@@ -2,6 +2,8 @@ import * as messagesModel from '../models/messagesModel.js'
 import * as chatsModel from '../models/chatsModel.js'
 
 export const getMessagesByChatId = async (req, res) => {
+    throw Error();
+
     const userId = req.userId;
     const chatId = req.query.chatId;
     const limit = req.query.limit;

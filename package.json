@@ -15,8 +15,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node --env-file=.env server.js",
-    "dev": "node --watch --env-file=.env server.js --host 0.0.0.0",
+    "start": "node --env-file=.env server.js --host 0.0.0.0",
+    "watch": "node --watch --env-file=.env server.js --host 0.0.0.0",
     "test": "jest",
     "docker": "docker build -t kepleomax-node-app .; docker-compose up"
   },
