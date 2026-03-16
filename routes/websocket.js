@@ -1,6 +1,19 @@
 import { rateLimiter } from '../middleware/tokenBucket.js';
+import { wsActivityDetectedSchema, wsDeleteMessageSchema, wsEndCallSchema, wsMessageSchema, wsReadAllSchema, wsReadBeforeTimeSchema, wsSendAnswerSchema, wsSendCameraStatusSchema, wsSendIceCandidateSchema, wsSendOfferSchema, wsSubsribeOnOnlineStatusUpdatesSchema as wsSubsribeOnOnlineStatusSchema, wsTypingActivitySchema } from '../schemas/websocketSchemas.js';
 import { endCall, sendAnswer, sendCameraStatus, sendICECandidate, sendOffer } from '../services/webRTCService.js';
 import { changeOnlineStatus as updateOnlineStatus, onDeleteMessage, onMessage, onMessageToAi, onReadAll, onReadBeforeTime, typingActivity } from '../services/websocketService.js';
+
+const withValidation = (socket, schema, callback) => (data) => {
+    const result = schema.safeParse(data);
+    if (!result.success) {
+        const errors = (result.error.issues ?? result.error.errors ?? []).map(error => ({ field: error.path.join('.'), message: error.message }));
+        console.error(`ws validation error: ${errors}`);
+        return socket.emit('validation_error', {
+            errors: errors,
+        });
+    }
+    callback(result.data);
+}
 
 const webSocket = (io, socket) => {
     const userId = socket.userId;
@@ -18,7 +31,7 @@ const webSocket = (io, socket) => {
 
     socket.use(async (_, next) => {
         try {
-            await rateLimiter.consume(socket.id);
+            await rateLimiter.consume(ip);
             next();
         } catch (rateLimiterRes) {
             socket.emit('error', {
@@ -28,69 +41,60 @@ const webSocket = (io, socket) => {
         }
     });
 
-    socket.on('message', async (data) => {
-        data['type'] = undefined;
-        data['call'] = undefined;
+    socket.on('message', withValidation(socket, wsMessageSchema, (data) => {
         onMessage(io, data, userId);
 
         if (data.recipient_id == process.env.CHAT_BOT_ID) {
             onMessageToAi(io, data, userId);
         }
-    }
-    );
+    }));
 
-    socket.on('delete_message', async (data) => {
-        onDeleteMessage(io, data, userId);
-    });
+    socket.on('delete_message', withValidation(socket, wsDeleteMessageSchema, (data) =>
+        onDeleteMessage(io, data, userId)
+    ));
 
-    socket.on('read_all', async (data) =>
+    socket.on('read_all', withValidation(socket, wsReadAllSchema, (data) =>
         onReadAll(io, data, userId)
-    );
+    ));
 
-    socket.on('read_before_time', async (data) =>
+    socket.on('read_before_time', withValidation(socket, wsReadBeforeTimeSchema, async (data) =>
         onReadBeforeTime(io, data, userId)
-    );
+    ));
 
-    socket.on('subscribe_on_online_status_updates', async (data) => {
-        const ids = data.users_ids;
-
-        if (isNaN(ids) && Array.isArray(ids)) {
-            for (const id in ids) {
-                socket.join(`${id}_online_status`);
-            }
-        } else if (!isNaN(ids)) {
-            socket.join(`${ids}_online_status`);
+    socket.on('subscribe_on_online_status_updates', withValidation(socket, wsSubsribeOnOnlineStatusSchema, async (data) => {
+        for (let id in data.users_ids) {
+            socket.join(`${id}_online_status`);
         }
-    });
+    }));
 
-    socket.on('activity_detected', async (data) => {
-        updateOnlineStatus(io, true, userId);
-    });
+    socket.on('activity_detected', withValidation(socket, wsActivityDetectedSchema, (data) =>
+        updateOnlineStatus(io, true, userId)
+    ));
 
-    socket.on('typing_activity_detected', async (data) => {
-        typingActivity(io, data, userId);
-    });
+    socket.on('typing_activity_detected', withValidation(socket, wsTypingActivitySchema, (data) =>
+        typingActivity(io, data, userId)
+    ));
 
     /// WebRTC
-    socket.on('webrtc_send_offer', (data) => {
-        sendOffer(io, data, userId);
-    });
+    socket.on('webrtc_send_offer', withValidation(socket, wsSendOfferSchema, (data) =>
+        sendOffer(io, data, userId)
+    ));
 
-    socket.on('webrtc_send_answer', (data) => {
-        sendAnswer(io, data, userId);
-    });
+    socket.on('webrtc_send_answer', withValidation(socket, wsSendAnswerSchema, (data) =>
+        sendAnswer(io, data, userId)
+    ));
 
-    socket.on('webrtc_send_ice_candidate', (data) => {
-        sendICECandidate(io, data, userId);
-    });
+    socket.on('webrtc_send_ice_candidate', withValidation(socket, wsSendIceCandidateSchema, (data) =>
+        sendICECandidate(io, data, userId)
+    ));
 
-    socket.on('webrtc_send_camera_status', (data) => {
-        sendCameraStatus(io, data, userId);
-    });
+    socket.on('webrtc_send_camera_status', withValidation(socket, wsSendCameraStatusSchema, (data) =>
+        sendCameraStatus(io, data, userId)
+    ));
 
-    socket.on('webrtc_end_call', (data) => {
-        endCall(io, data, userId);
-    });
+    socket.on('webrtc_end_call', withValidation(socket, wsEndCallSchema, (data) =>
+        endCall(io, data, userId)
+    ));
 
     socket.on('disconnect', () => {
         console.log(`user ${socket.id} with id ${userId} disconnected`);

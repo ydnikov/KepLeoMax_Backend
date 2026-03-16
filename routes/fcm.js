@@ -1,7 +1,7 @@
 import express from 'express';
 import { addFCMToken, deleteFCMToken } from '../controllers/fcmController.js';
 import { validate } from '../middleware/validator.js';
-import { addFCMTokenSchema, deleteFCMTokenSchema } from '../controllers/schemas/fcmSchemas.js';
+import { addFCMTokenSchema, deleteFCMTokenSchema } from '../schemas/fcmSchemas.js';
 
 const router = express.Router();
 

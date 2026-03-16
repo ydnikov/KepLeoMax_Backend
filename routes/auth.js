@@ -1,7 +1,7 @@
 import express from 'express';
 const router = express.Router();
 import { createNewUser, login, logout, refreshToken } from '../controllers/authController.js'
-import { createNewUserSchema, loginSchema, logoutSchema, refreshTokenSchema } from '../controllers/schemas/authSchemas.js';
+import { createNewUserSchema, loginSchema, logoutSchema, refreshTokenSchema } from '../schemas/authSchemas.js';
 import { validate } from '../middleware/validator.js';
 
 router.post('/register', validate(createNewUserSchema), createNewUser);

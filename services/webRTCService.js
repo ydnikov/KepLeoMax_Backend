@@ -6,7 +6,7 @@ import { onMessage } from './websocketService.js';
 
 export const sendOffer = async (io, data, userId) => {
     console.log(`send_offer`);
-    const offer = data.offer; // contains sdp and type
+    const offer = data.offer;
     const toUserId = data.to_user_id;
 
     // const hasActiveCalls = await callsModel.checkNotEndedCallsOfEachUser(userId, toUserId);
@@ -31,7 +31,7 @@ export const sendOffer = async (io, data, userId) => {
 
 export const sendAnswer = async (io, data, userId) => {
     console.log(`send_answer`);
-    const answer = data.answer; // contains sdp and type
+    const answer = data.answer;
     const toUserId = data.to_user_id;
 
     io.in([toUserId.toString()]).emit('webrtc_answer', {

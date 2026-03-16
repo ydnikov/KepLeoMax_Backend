@@ -32,9 +32,10 @@ export const typingActivity = async (io, data, userId) => {
 
 /// messages
 export const onReadBeforeTime = async (io, data, userId) => {
-    // TODO validate
     const chatId = data.chat_id;
-    const readMessages = await messagesModel.readMessages(chatId, userId, data.time);
+    const beforeTime = data.time;
+    
+    const readMessages = await messagesModel.readMessages(chatId, userId, beforeTime);
     if (readMessages.length > 0) {
         // TODO optimize
         const otherUserId = await chatsModel.getOtherUserIdByChatId(userId, chatId);
@@ -43,7 +44,7 @@ export const onReadBeforeTime = async (io, data, userId) => {
 }
 
 export const onReadAll = async (io, data, userId) => {
-    data.time = null;
+    data.time = Date.now();
     await onReadBeforeTime(io, data, userId);
 }
 
@@ -75,10 +76,6 @@ export const onMessage = async (io, data, userId) => {
     const call = data.call;
     const message = call == null ? data.message : JSON.stringify(call);
     const type = data.type;
-    if (isNaN(otherUserId) || !message) {
-        onError('Event: onMessage, otherUserId or message is missing');
-        return;
-    }
 
     let chatId;
     let createdChatInfo = null;
@@ -135,10 +132,6 @@ export const onMessage = async (io, data, userId) => {
 
 export const onDeleteMessage = async (io, data, userId) => {
     const messageId = data.message_id;
-    if (isNaN(messageId)) {
-        onError('Event: onDeleteMessage, int message_id is missing');
-        return;
-    }
     const messageToDelete = await messagesModel.getMessageById(messageId);
     if (!messageToDelete || messageToDelete.sender_id != userId) return;
 
