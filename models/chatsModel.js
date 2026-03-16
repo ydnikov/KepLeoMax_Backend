@@ -47,6 +47,7 @@ export const getAllChatsByUserId = async (userId) => {
     return result.rows.filter(row => row.other_user_id != userId);
 }
 
+// TODO make arguments userId1, userId2 insead of userIds
 // userIds length must be 2
 export const getChatOfUsers = async (userIds) => {
     const result = await pool.query('SELECT t1.*, t2.* FROM (SELECT * FROM chats WHERE user_id = $1) AS t1 INNER JOIN chats AS t2 ON t2.chat_id = t1.chat_id AND t2.user_id = $2', [userIds[0], userIds[1]]);

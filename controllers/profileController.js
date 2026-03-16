@@ -4,20 +4,13 @@ import convertUserToSend from "../utills/convertUser.js";
 
 export const editProfile = async (req, res) => {
     const userId = req.userId;
-    const username = req.body.username?.trim();
-    const description = req.body.description?.trim();
-    const profileImage = req.body.profile_image?.trim();
+    const username = req.body.username;
+    const description = req.body.description;
+    const profileImage = req.body.profile_image;
     const updateImage = req.body.update_image;
 
-    // validations
-    if (!username || updateImage === undefined) {
-        return res.status(400).json({ message: 'username and update_image fields are required' });
-    } else if (updateImage !== false && updateImage !== true) {
-        return res.status(400).json({ message: 'update_image field must be boolean' });
-    }
-
     // update profile
-    const updatedProfile = await profilesModel.editProfileByUserId(userId, description ?? '');
+    const updatedProfile = await profilesModel.editProfileByUserId(userId, description);
     const updateUser = await usersModel.updateUser(userId, username, profileImage, updateImage);
     updatedProfile.user = convertUserToSend(updateUser, req);
 
@@ -25,14 +18,7 @@ export const editProfile = async (req, res) => {
 }
 
 export const getProfile = async (req, res) => {
-    const userId = req.query.userId?.trim();
-
-    // validations
-    if (!userId) {
-        return res.status(400).json({ message: 'userId param is required' });
-    } else if (isNaN(userId)) {
-        return res.status(400).json({ message: 'userId must be int' });
-    }
+    const userId = req.query.userId;
 
     // get profile
     const profile = await profilesModel.getProfileByUserId(userId);

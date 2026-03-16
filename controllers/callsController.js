@@ -5,10 +5,6 @@ export const declineCall = async (req, res) => {
     const userId = req.userId;
     const otherUserId = req.query.otherUserId;
 
-    if (isNaN(otherUserId)) {
-        return res.status(400).json({ message: "otherUserId param should be int" });
-    }
-
     console.log(`decline call, userId: ${userId}, otherUserId: ${otherUserId}`);
 
     endCall(io, {

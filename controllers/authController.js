@@ -9,27 +9,15 @@ import emailValidator from 'email-validator';
 const accessTokenExpireTime = '1200s'
 const refreshTokenExpireTime = '365d'
 
-const validateEmailAndPassword = (email, password, res) => {
-    if (!email || !password) {
-        res.status(400).json({ message: 'email and password fields are required' });
-        return false;
-    } if (!emailValidator.validate(email)) {
-        res.status(400).json({ message: 'The email is incorrect' });
-        return false;
-    } if (password.length < 6) {
-        res.status(400).json({ message: 'The password length must be at least 6' });
-        return false;
-    }
-    return true;
-}
-
 export const createNewUser = async (req, res) => {
-    const email = req.body.email?.trim();
-    const password = req.body.password?.trim();
+    const email = req.body.email;
+    const password = req.body.password;
 
     // validations
-    const isValid = validateEmailAndPassword(email, password, res);
-    if (!isValid) return;
+    if (!emailValidator.validate(email)) {
+        res.status(400).json({ message: 'The email is incorrect' });
+        return false;
+    }
 
     // check duplicates
     if (await usersModel.haveDuplicateWithEmail(email)) {
@@ -45,12 +33,14 @@ export const createNewUser = async (req, res) => {
 }
 
 export const login = async (req, res) => {
-    const email = req.body.email?.trim();
-    const password = req.body.password?.trim();
+    const email = req.body.email;
+    const password = req.body.password;
 
     // validations
-    const isValid = validateEmailAndPassword(email, password, res);
-    if (!isValid) return;
+    if (!emailValidator.validate(email)) {
+        res.status(400).json({ message: 'The email is incorrect' });
+        return false;
+    }
 
     // get user
     const foundUser = await usersModel.getUserByEmail(email);
@@ -89,10 +79,7 @@ export const login = async (req, res) => {
 }
 
 export const refreshToken = async (req, res) => {
-    const refreshToken = req.body.refreshToken?.trim();
-
-    // validations
-    if (!refreshToken) return res.sendStatus(401);
+    const refreshToken = req.body.refresh_token;
 
     // get user
     const foundUser = await usersModel.getUserByRefreshToken(refreshToken);
@@ -144,10 +131,10 @@ export const refreshToken = async (req, res) => {
 }
 
 export const logout = async (req, res) => {
-    const refreshToken = req.body.refreshToken?.trim();
+    const refreshToken = req.body.refresh_token;
 
     // validations
-    if (!refreshToken) return res.sendStatus(401);
+    if (!refreshToken) return res.sendStatus(204);
 
     // get user
     const foundUser = await usersModel.getUserByRefreshToken(refreshToken);

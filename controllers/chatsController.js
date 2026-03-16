@@ -7,19 +7,12 @@ export const getChat = async (req, res) => {
     const userId = req.userId;
     const chatId = req.query.chatId?.trim();
 
-    // validations
-    if (!chatId) {
-        return res.status(400).json({ message: 'chatId param is required' });
-    } else if (isNaN(chatId)) {
-        return res.status(400).json({ message: 'chatId must be int' });
-    }
-
     // get chat
     const chat = await chatsModel.getChatById(chatId);
     if (!chat) {
         return res.status(404).json({ message: `chat with id ${chatId} not found` });
     } else if (!chat.user_ids.includes(userId)) {
-        return res.status(403).json({ message: `can't get alien chat` });
+        return res.status(403).json({ message: `user has no permission to this chat` });
     }
 
     // set other_user
@@ -87,14 +80,7 @@ export const getChats = async (req, res) => {
 // !!! it doesn't return last_message and unread_count
 export const getChatWithUser = async (req, res) => {
     const userId = req.userId;
-    const otherUserId = req.query.userId?.trim();
-
-    // validations
-    if (!otherUserId) {
-        return res.status(400).json({ message: 'otherUserId param is required' });
-    } else if (isNaN(otherUserId)) {
-        return res.status(400).json({ message: 'otherUserId must be int' });
-    }
+    const otherUserId = req.query.userId;
 
     // get chat
     const chat = await chatsModel.getChatOfUsers([userId, otherUserId]);

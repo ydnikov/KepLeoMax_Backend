@@ -9,8 +9,8 @@ export const getPostById = async (postId) => {
     }
 }
 
-export const getPostsByUserId = async (userId, limit, offset, beforeTime) => {
-    const result = await pool.query('SELECT * FROM posts WHERE user_id = $1 AND created_at < $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4', [userId, beforeTime ?? Date.now(), limit, offset]);
+export const getPostsByUserId = async (userId, limit, cursor) => {
+    const result = await pool.query('SELECT * FROM posts WHERE user_id = $1 AND id < $3 ORDER BY created_at DESC LIMIT $2', [userId, limit, cursor ?? Math.pow(2, 31) - 1]);
     return result.rows;
 }
 
@@ -24,8 +24,8 @@ export const updatePost = async (postId, content, images) => {
    return result.rows[0];
 }
 
-export const getPosts = async (limit, offset, beforeTime) => {
-    const result = await pool.query('SELECT * FROM posts WHERE created_at < $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3', [beforeTime ?? Date.now(), limit, offset]);
+export const getPosts = async (limit, cursor) => {
+    const result = await pool.query('SELECT * FROM posts WHERE id < $2 ORDER BY created_at DESC LIMIT $1', [limit, cursor ?? Math.pow(2, 31) - 1]);
     return result.rows;
 }
 
