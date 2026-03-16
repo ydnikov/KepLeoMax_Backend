@@ -34,6 +34,7 @@
     "openai": "^6.9.1",
     "pg": "^8.16.3",
     "pg-safe-numbers": "^0.7.0",
+    "rate-limiter-flexible": "^10.0.1",
     "sharp": "^0.34.5",
     "socket.io": "^4.8.1",
     "ws": "^8.18.3"

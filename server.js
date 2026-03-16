@@ -18,6 +18,7 @@ import chatsRouter from './routes/chats.js';
 import callsRouter from './routes/calls.js';
 import fcmRouter from './routes/fcm.js';
 import webSocketRouter from './routes/websocket.js';
+import { rateLimitMiddleware } from './middleware/tokenBucket.js';
 
 const PORT = process.env.PORT;
 
@@ -34,9 +35,10 @@ app.use(express.json());
 app.use(express.urlencoded());
 app.use(cookieParser());
 
-// Routes
-app.use('/api/auth', authRouter);
+// rate limit
+app.use(rateLimitMiddleware);
 
+// Routes
 app.post('/setup', async (req, res) => {
     if (req.body?.key !== process.env.SETUP_KEY) {
         return res.sendStatus(403);
@@ -65,6 +67,7 @@ app.post('/setup', async (req, res) => {
     return res.json({ message: 'tables created' });
 });
 
+app.use('/api/auth', authRouter);
 app.use('/api/files', filesRouter);
 
 app.use(verifyJWT);

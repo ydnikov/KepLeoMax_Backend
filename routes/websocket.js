@@ -1,8 +1,10 @@
+import { rateLimiter } from '../middleware/tokenBucket.js';
 import { endCall, sendAnswer, sendCameraStatus, sendICECandidate, sendOffer } from '../services/webRTCService.js';
 import { changeOnlineStatus as updateOnlineStatus, onDeleteMessage, onMessage, onMessageToAi, onReadAll, onReadBeforeTime, typingActivity } from '../services/websocketService.js';
 
 const webSocket = (io, socket) => {
     const userId = socket.userId;
+    const ip = socket.handshake.address;
 
     if (!userId) {
         socket.emit('auth_error', 401);
@@ -12,8 +14,19 @@ const webSocket = (io, socket) => {
 
     console.log(`user ${socket.id} with id ${userId} connected`);
     updateOnlineStatus(io, true, userId);
-
     socket.join(userId.toString());
+
+    socket.use(async (_, next) => {
+        try {
+            await rateLimiter.consume(socket.id);
+            next();
+        } catch (rateLimiterRes) {
+            socket.emit('error', {
+                message: 'Too many requests',
+            });
+            console.log(`too many requests (ws): ${userId}`);
+        }
+    });
 
     socket.on('message', async (data) => {
         data['type'] = undefined;
