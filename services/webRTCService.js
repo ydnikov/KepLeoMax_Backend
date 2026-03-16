@@ -59,12 +59,12 @@ export const sendICECandidate = (io, data, userId) => {
 }
 
 export const sendCameraStatus = (io, data, userId) => {
-    const isCameraOn = data.is_camera_on;
+    const status = data.status;
     const toUserId = data.to_user_id;
 
     io.in([toUserId.toString()]).emit('webrtc_camera_status', {
         other_user_id: userId,
-        is_camera_on: isCameraOn,
+        status: status,
     });
 }
 

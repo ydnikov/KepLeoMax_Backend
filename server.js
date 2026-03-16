@@ -16,6 +16,7 @@ import postsRouter from './routes/posts.js';
 import messagesRouter from './routes/messages.js';
 import chatsRouter from './routes/chats.js';
 import callsRouter from './routes/calls.js';
+import fcmRouter from './routes/fcm.js';
 import webSocketRouter from './routes/websocket.js';
 
 const PORT = process.env.PORT;
@@ -68,6 +69,7 @@ app.use('/api/files', filesRouter);
 
 app.use(verifyJWT);
 app.use('/api/user', userRouter);
+app.use('/api/fcmToken', fcmRouter);
 app.use('/api', router);
 app.use('/api/profile', profileRouter);
 app.use('/api/posts', postsRouter);

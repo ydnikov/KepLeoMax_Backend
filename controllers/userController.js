@@ -1,6 +1,5 @@
 import convertUserToSend from "../utills/convertUser.js";
 import * as usersModel from '../models/usersModel.js';
-import * as fcmModel from '../models/fcmModel.js';
 
 export const getUser = async (req, res) => {
     const userId = req.query.userId?.trim();
@@ -55,33 +54,4 @@ export const searchUsers = async (req, res) => {
     const users = (await usersModel.searchUsers(search, userId, limit, cursor)).map(user => convertUserToSend(user, req));
 
     res.status(200).json({ data: users, limit: limit, cursor: cursor });
-}
-
-export const addFCMToken = async (req, res) => {
-    const userId = req.userId;
-    const token = req.body.token?.trim();
-
-    // validations
-    if (!token) {
-        return res.status(400).json({ message: 'token field is required' });
-    }
-
-    // add token
-    await fcmModel.addFCMToken(userId, token);
-
-    res.sendStatus(200);
-}
-
-export const deleteFCMToken = async (req, res) => {
-    const token = req.body.token?.trim();
-
-    // validations
-    if (!token) {
-        return res.status(400).json({ message: 'token field is required' });
-    }
-
-    // delete token
-    await fcmModel.deleteFCMToken(token);
-
-    res.sendStatus(200);
 }
