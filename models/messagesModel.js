@@ -1,7 +1,9 @@
 import pool from "../db.js";
+import { decrypt, encrypt } from "../services/encryptionService.js";
 
 export const createNewMessage = async (chatId, senderId, message, type, isRead) => {
-    const result = await pool.query('INSERT INTO messages (chat_id, sender_id, message, type, is_read, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id', [chatId, senderId, message, type ?? 'message', isRead ?? false, Date.now()]);
+    const encryptedMessage = encrypt(message);
+    const result = await pool.query('INSERT INTO messages (chat_id, sender_id, message, type, is_read, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id', [chatId, senderId, encryptedMessage, type ?? 'message', isRead ?? false, Date.now()]);
     return result.rows[0].id;
 }
 
@@ -14,12 +16,16 @@ export const getMessageById = async (id) => {
     if (result.rows.length === 0) {
         return null;
     } else {
+        result.rows[0].message = decrypt(result.rows[0].message);
         return result.rows[0];
     }
 }
 
 export const getAllMessagesByChatId = async (chatId, limit, cursor) => {
     const result = await pool.query('SELECT * FROM messages WHERE chat_id = $1 AND id < $2 ORDER BY created_at DESC LIMIT $3', [chatId, cursor ?? Math.pow(2, 31) - 1, limit]);
+    for (let i = 0; i < result.rows.length; i++) {
+        result.rows[i].message = decrypt(result.rows[i].message);
+    }
     return result.rows;
 }
 
