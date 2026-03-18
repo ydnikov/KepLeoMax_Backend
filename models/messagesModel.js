@@ -23,10 +23,26 @@ export const getMessageById = async (id) => {
 
 export const getAllMessagesByChatId = async (chatId, limit, cursor) => {
     const result = await pool.query('SELECT * FROM messages WHERE chat_id = $1 AND id < $2 ORDER BY created_at DESC LIMIT $3', [chatId, cursor ?? Math.pow(2, 31) - 1, limit]);
-    for (let i = 0; i < result.rows.length; i++) {
-        result.rows[i].message = decrypt(result.rows[i].message);
+    if (result.rows.length == 0) return [];
+
+    let rows;
+    // load more messages until first is_read = true
+    // limit > 1 cause this method is called for get last message of the chat with the limit 1
+    if (!result.rows[result.rows.length - 1].is_read && limit > 1) {
+        const result2 = await pool.query(`
+            SELECT * FROM messages
+            WHERE chat_id = $1 AND id < $2 AND id >= (SELECT id FROM messages WHERE chat_id = $1 AND is_read = TRUE ORDER BY created_at DESC LIMIT 1) 
+            ORDER BY created_at DESC
+        `, [chatId, result.rows[result.rows.length - 1].id]);
+        rows = [...result.rows, ...result2.rows];
+    } else {
+        rows = result.rows;
     }
-    return result.rows;
+    
+    for (let i = 0; i < rows.length; i++) {
+        rows[i].message = decrypt(rows[i].message);
+    }
+    return rows;
 }
 
 export const setMessageIsRead = async (messageId) => {
