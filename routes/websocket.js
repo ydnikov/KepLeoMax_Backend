@@ -1,6 +1,6 @@
 import { rateLimiter } from '../middleware/tokenBucket.js';
 import { wsActivityDetectedSchema, wsDeleteMessageSchema, wsEndCallSchema, wsMessageSchema, wsReadAllSchema, wsReadBeforeTimeSchema, wsSendAnswerSchema, wsSendCameraStatusSchema, wsSendIceCandidateSchema, wsSendOfferSchema, wsSubsribeOnOnlineStatusUpdatesSchema as wsSubsribeOnOnlineStatusSchema, wsTypingActivitySchema } from '../schemas/websocketSchemas.js';
-import { endCall, sendAnswer, sendCameraStatus, sendICECandidate, sendOffer } from '../services/webRTCService.js';
+import { sendAnswer, sendCameraStatus, sendICECandidate, sendOffer } from '../services/webRTCService.js';
 import { changeOnlineStatus as updateOnlineStatus, onDeleteMessage, onMessage, onMessageToAi, onReadAll, onReadBeforeTime, typingActivity } from '../services/websocketService.js';
 
 const withValidation = (socket, schema, callback) => (data) => {
@@ -90,10 +90,6 @@ const webSocket = (io, socket) => {
 
     socket.on('webrtc_send_camera_status', withValidation(socket, wsSendCameraStatusSchema, (data) =>
         sendCameraStatus(io, data, userId)
-    ));
-
-    socket.on('webrtc_end_call', withValidation(socket, wsEndCallSchema, (data) =>
-        endCall(io, data, userId)
     ));
 
     socket.on('disconnect', () => {

@@ -58,7 +58,3 @@ export const wsSendCameraStatusSchema = z.object({
     to_user_id: z.number().int().positive(),
     status: z.enum(['off', 'back', 'front']),
 });
-
-export const wsEndCallSchema = z.object({
-    to_user_id: z.number().int().positive(),
-});
