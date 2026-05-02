@@ -5,6 +5,7 @@ import * as profilesModel from '../models/profilesModel.js';
 import * as onlinesModel from '../models/onlinesModel.js';
 import convertUserToSend from '../utills/convertUser.js';
 import emailValidator from 'email-validator';
+import pool from '../db.js';
 
 const accessTokenExpireTime = '1200s'
 const refreshTokenExpireTime = '365d'
@@ -23,12 +24,24 @@ export const createNewUser = async (req, res) => {
     if (await usersModel.haveDuplicateWithEmail(email)) {
         return res.status(409).json({ message: `User with email ${email} is alredy exists` });
     }
-
+    
     // create user
+    const client = await pool.connect();
     const hashedPassword = await bcrypt.hash(password, 10);
-    const userId = await usersModel.createUser(email, hashedPassword);
-    await profilesModel.createUserProfile(userId);
-    await onlinesModel.addUser(userId);
+    try {
+        await client.query('BEGIN');
+
+        const userId = await usersModel.createUser(email, hashedPassword, client);
+        await profilesModel.createUserProfile(userId, client);
+        await onlinesModel.addUser(userId, client);
+        
+        await client.query('COMMIT');
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
     return res.status(201).json({ success: `New user with email ${email} created` });
 }
 
@@ -111,19 +124,6 @@ export const refreshToken = async (req, res) => {
                 process.env.ACCESS_TOKEN_SECRET,
                 { expiresIn: accessTokenExpireTime }
             );
-            // refreshToken is not needed now
-            // const newRefreshToken = jwt.sign(
-            //     {
-            //         "UserInfo": {
-            //             "id": decoded.UserInfo.id,
-            //         }
-            //     },
-            //     process.env.REFRESH_TOKEN_SECRET,
-            //     { expiresIn: refreshTokenExpireTime }
-            // );
-
-            // const newRefreshTokens = [foundUser.refresh_tokens.filter(token => token !== refreshToken), newRefreshToken];
-            // await usersModel.updateRefreshTokens(foundUser.id, newRefreshTokens);
 
             return res.status(200).json({ accessToken: newAccessToken });
         }

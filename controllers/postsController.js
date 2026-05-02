@@ -7,7 +7,8 @@ export const createPost = async (req, res) => {
     const content = req.body.content;
     const images = req.body.images;
 
-    // create post
+    // create post 
+    // TODO optimize
     const newPost = await postsModel.createNewPost(userId, content, images);
     newPost.user = convertUserToSend(await usersModel.getUserById(userId), req);
 

@@ -1,3 +1,4 @@
+import pool from "../db.js";
 import * as profilesModel from "../models/profilesModel.js";
 import * as usersModel from '../models/usersModel.js';
 import convertUserToSend from "../utills/convertUser.js";
@@ -10,11 +11,23 @@ export const editProfile = async (req, res) => {
     const updateImage = req.body.update_image;
 
     // update profile
-    const updatedProfile = await profilesModel.editProfileByUserId(userId, description);
-    const updateUser = await usersModel.updateUser(userId, username, profileImage, updateImage);
-    updatedProfile.user = convertUserToSend(updateUser, req);
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
 
-    res.status(200).json({ data: updatedProfile });
+        const updatedProfile = await profilesModel.editProfileByUserId(userId, description, client);
+        const updateUser = await usersModel.updateUser(userId, username, profileImage, updateImage, client);
+        
+        await client.query('COMMIT');
+        
+        updatedProfile.user = convertUserToSend(updateUser, req);
+        return res.status(200).json({ data: updatedProfile });;
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
 }
 
 export const getProfile = async (req, res) => {
