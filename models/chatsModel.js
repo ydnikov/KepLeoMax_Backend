@@ -1,13 +1,13 @@
 import pool from "../db.js";
 
-export const createNewChat = async (userIds) => {
+export const createNewChat = async (userIds, client = pool) => {
     let chatId;
     for (const userId of userIds) {
         if (!chatId) {
-            const result = await pool.query('INSERT INTO chats (user_id) VALUES ($1) RETURNING chat_id', [userId]);
+            const result = await client.query('INSERT INTO chats (user_id) VALUES ($1) RETURNING chat_id', [userId]);
             chatId = result.rows[0].chat_id;
         } else {
-            await pool.query('INSERT INTO chats (user_id, chat_id) VALUES ($1, $2)', [userId, chatId]);
+            await client.query('INSERT INTO chats (user_id, chat_id) VALUES ($1, $2)', [userId, chatId]);
         }
     }
     return chatId;
@@ -49,8 +49,8 @@ export const getAllChatsByUserId = async (userId) => {
 
 // TODO make arguments userId1, userId2 insead of userIds
 // userIds length must be 2
-export const getChatOfUsers = async (userIds) => {
-    const result = await pool.query('SELECT t1.*, t2.* FROM (SELECT * FROM chats WHERE user_id = $1) AS t1 INNER JOIN chats AS t2 ON t2.chat_id = t1.chat_id AND t2.user_id = $2', [userIds[0], userIds[1]]);
+export const getChatOfUsers = async (userIds, client = pool) => {
+    const result = await client.query('SELECT t1.*, t2.* FROM (SELECT * FROM chats WHERE user_id = $1) AS t1 INNER JOIN chats AS t2 ON t2.chat_id = t1.chat_id AND t2.user_id = $2', [userIds[0], userIds[1]]);
     if (result.rows.length === 0) {
         return null;
     } else {
@@ -61,6 +61,6 @@ export const getChatOfUsers = async (userIds) => {
     }
 }
 
-export const deleteChatById = async (chatId) => {
-    await pool.query('DELETE FROM chats WHERE chat_id = $1', [chatId]);
+export const deleteChatById = async (chatId, client = pool) => {
+    await client.query('DELETE FROM chats WHERE chat_id = $1', [chatId]);
 }

@@ -17,10 +17,10 @@ export const editProfile = async (req, res) => {
 
         const updatedProfile = await profilesModel.editProfileByUserId(userId, description, client);
         const updateUser = await usersModel.updateUser(userId, username, profileImage, updateImage, client);
+        updatedProfile.user = convertUserToSend(updateUser, req);
         
         await client.query('COMMIT');
         
-        updatedProfile.user = convertUserToSend(updateUser, req);
         return res.status(200).json({ data: updatedProfile });;
     } catch (e) {
         await client.query('ROLLBACK');

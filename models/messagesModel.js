@@ -1,18 +1,18 @@
 import pool from "../db.js";
 import { decrypt, encrypt } from "../services/encryptionService.js";
 
-export const createNewMessage = async (chatId, senderId, message, type, isRead) => {
+export const createNewMessage = async (chatId, senderId, message, type, isRead, client = pool) => {
     const encryptedMessage = encrypt(message);
-    const result = await pool.query('INSERT INTO messages (chat_id, sender_id, message, type, is_read, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id', [chatId, senderId, encryptedMessage, type ?? 'message', isRead ?? false, Date.now()]);
+    const result = await client.query('INSERT INTO messages (chat_id, sender_id, message, type, is_read, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id', [chatId, senderId, encryptedMessage, type ?? 'message', isRead ?? false, Date.now()]);
     return result.rows[0].id;
 }
 
-export const deleteMessageById = async (messageId) => {
-    await pool.query('DELETE FROM messages WHERE id = $1', [messageId]);
+export const deleteMessageById = async (messageId, client = pool) => {
+    await client.query('DELETE FROM messages WHERE id = $1', [messageId]);
 }
 
-export const getMessageById = async (id) => {
-    const result = await pool.query('SELECT * FROM messages WHERE id = $1', [id]);
+export const getMessageById = async (id, client = pool) => {
+    const result = await client.query('SELECT * FROM messages WHERE id = $1', [id]);
     if (result.rows.length === 0) {
         return null;
     } else {
@@ -54,7 +54,7 @@ export const getUnreadCount = async (chatId) => {
     return Number(result.rows[0].count);
 }
 
-export const readMessages = async (chatId, currentUser, time) => {
-    const result = await pool.query('UPDATE messages SET is_read = TRUE WHERE chat_id = $1 AND sender_id != $2 AND created_at <= $3 AND is_read IS DISTINCT FROM TRUE RETURNING id, sender_id', [chatId, currentUser, time ?? Date.now()]);
+export const readMessages = async (chatId, currentUser, time, client = pool) => {
+    const result = await client.query('UPDATE messages SET is_read = TRUE WHERE chat_id = $1 AND sender_id != $2 AND created_at <= $3 AND is_read IS DISTINCT FROM TRUE RETURNING id, sender_id', [chatId, currentUser, time ?? Date.now()]);
     return result.rows;
 }

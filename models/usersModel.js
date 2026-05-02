@@ -20,8 +20,8 @@ export const getUserByEmail = async (email) => {
 }
 
 // TODO this is bullshit and not working in other methods
-export const getUserById = async (id) => {
-    const result = await pool.query('SELECT * FROM users LEFT JOIN onlines ON users.id = onlines.user_id WHERE users.id = $1', [id]);
+export const getUserById = async (id, client = pool) => {
+    const result = await client.query('SELECT * FROM users LEFT JOIN onlines ON users.id = onlines.user_id WHERE users.id = $1', [id]);
     return result.rows[0];
 }
 
