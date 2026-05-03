@@ -12,7 +12,8 @@ export const sendNotification = async (userId, title, body, externalData) => {
 
     tokens.forEach((token) => {
         const message = {
-            /// should be in the data, not in the notification for right handling background notifications
+            // title and body should be in the data, not in the notification
+            // for right handling background notifications
             data: {
                 ...externalData,
                 title: title,
@@ -29,13 +30,13 @@ export const sendNotification = async (userId, title, body, externalData) => {
         };
         getMessaging()
             .send(message)
-            .then((response) => {
+            .then((_) => {
                 console.log(`Successfully sent message to userId ${userId}, type: ${externalData['type']}`);
             })
             .catch((error) => {
                 if (error.errorInfo.code == "messaging/registration-token-not-registered") {
-                    console.log("Error sending message, token-not-registered:", token);
-                    fcmModel.deleteFCMToken(token.fcm_token);
+                    console.log("Error sending message, token-not-registered:", token.fcm_token);
+                    fcmModel.deleteFCMTokenById(token.id);
                 } else {
                     console.log("Error sending message:", error);
                 }

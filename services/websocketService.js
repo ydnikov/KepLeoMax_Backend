@@ -4,7 +4,7 @@ import * as usersModel from '../models/usersModel.js';
 import * as onlinesModel from '../models/onlinesModel.js';
 import * as callsModel from '../models/callsModel.js';
 import { sendNotification } from '../services/notificationService.js';
-import { ask } from './aiService.js';
+import { askChatGPT } from './aiService.js';
 import convertUserToSend from '../utills/convertUser.js';
 import pool from '../db.js';
 
@@ -38,8 +38,7 @@ export const onReadBeforeTime = async (io, data, userId) => {
 
     const readMessages = await messagesModel.readMessages(chatId, userId, beforeTime);
     if (readMessages.length > 0) {
-        // TODO optimize
-        const otherUserId = await chatsModel.getOtherUserIdByChatId(userId, chatId);
+        const otherUserId = readMessages[0].sender_id;
         sendReadEvents(io, chatId, readMessages[0].sender_id, userId, otherUserId, readMessages.map(obj => obj.id));
     }
 }
@@ -57,14 +56,14 @@ export const onMessageToAi = async (io, data, userId) => {
     }
 
     /// todo optimize
-    const chat = await chatsModel.getChatOfUsers([userId, process.env.CHAT_BOT_ID]);
+    const chat = await chatsModel.getChatOfUsers(userId, process.env.CHAT_BOT_ID);
     var messages;
     if (!chat) {
         messages = [];
     } else {
         messages = (await messagesModel.getAllMessagesByChatId(chat.id, 50, null))
     }
-    const answer = await ask(message, messages.reverse());
+    const answer = await askChatGPT(message, messages.reverse());
     const newData = {
         recipient_id: userId,
         message: answer
@@ -85,19 +84,18 @@ export const onMessage = async (io, data, userId) => {
 
         let chatId;
         let createdChatInfo = null;
-        const chat = await chatsModel.getChatOfUsers([userId, otherUserId], client);
+        const chat = await chatsModel.getChatOfUsers(userId, otherUserId, client);
         if (!chat) {
             console.log(`creating new chat between ${userId} and ${otherUserId}`);
-            chatId = await chatsModel.createNewChat([userId, otherUserId], client);
+            chatId = await chatsModel.createNewChat(userId, otherUserId, client);
             createdChatInfo = { chat_id: chatId, users_ids: [userId, otherUserId] };
         } else {
             chatId = chat.id;
         }
         console.log(`chat id: ${chatId}, userId: ${userId}, otherUserId: ${otherUserId}`);
         const callIsMissed = call && !call.start_time && call.end_time;
-        /// TODO wtf these 2 lines?
-        const messageId = await messagesModel.createNewMessage(chatId, userId, message, type, call != null && !callIsMissed, client);
-        const newMessage = await messagesModel.getMessageById(messageId, client);
+        const newMessage = await messagesModel.createNewMessage(chatId, userId, message, type, call != null && !callIsMissed, client);
+
 
         newMessage.is_current_user = true;
         newMessage.other_user_id = otherUserId;

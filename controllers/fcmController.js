@@ -11,7 +11,7 @@ export const addFCMToken = async (req, res) => {
 }
 
 export const deleteFCMToken = async (req, res) => {
-    // TODO check user?
+    const userId = req.userId;
     const token = req.query.token;
 
     // validations
@@ -20,7 +20,6 @@ export const deleteFCMToken = async (req, res) => {
     }
 
     // delete token
-    await fcmModel.deleteFCMToken(token);
-
-    res.sendStatus(200);
+    const statusCode = await fcmModel.deleteFCMToken(userId, token);
+    return res.sendStatus(statusCode);
 }

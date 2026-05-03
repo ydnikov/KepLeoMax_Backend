@@ -14,12 +14,6 @@ export const getPendingCallOfUsers = async (callerId, answererId) => {
     return result.rows[0];
 }
 
-// export const checkNotEndedCallsOfEachUser = async (userId1, userId2) => {
-//     // TODO optimize
-//     const result = await pool.query('SELECT * FROM calls WHERE (caller_id = $1 OR answerer_id = $1) OR (caller_id = $2 OR answerer_id = $2) AND end_time IS NULL ORDER BY created_at DESC LIMIT 1', [userId1, userId2]);
-//     return result.rowCount > 0;
-// }
-
 export const getLastCallOfUsers = async (userId1, userId2) => {
     const result = await pool.query('SELECT * FROM calls WHERE (caller_id = $1 OR caller_id = $2) AND (answerer_id = $1 OR answerer_id = $2) ORDER BY created_at DESC LIMIT 1', [userId1, userId2]);
     return result.rows[0];

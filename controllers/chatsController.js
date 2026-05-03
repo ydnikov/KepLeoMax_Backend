@@ -83,7 +83,7 @@ export const getChatWithUser = async (req, res) => {
     const otherUserId = req.query.userId;
 
     // get chat
-    const chat = await chatsModel.getChatOfUsers([userId, otherUserId]);
+    const chat = await chatsModel.getChatOfUsers(userId, otherUserId);
     if (!chat) {
         return res.status(404).json({ message: `chat with user ${otherUserId} not found` });
     } else {

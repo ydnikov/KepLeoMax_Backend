@@ -19,17 +19,15 @@ export const getUserByEmail = async (email) => {
     return result.rows[0];
 }
 
-// TODO this is bullshit and not working in other methods
 export const getUserById = async (id, client = pool) => {
     const result = await client.query('SELECT * FROM users LEFT JOIN onlines ON users.id = onlines.user_id WHERE users.id = $1', [id]);
     return result.rows[0];
 }
 
-// TODO here too
 export const searchUsers = async (search, currentUserId, limit, cursor) => {
     const result = await pool.query(
         'SELECT * FROM users LEFT JOIN onlines ON users.id = onlines.user_id WHERE (lower(users.username) LIKE lower($1)) AND users.id != $2 AND users.id > $3 ORDER BY id ASC LIMIT $4',
-        [`%${search}%`, currentUserId, cursor ?? 0, limit],
+        [`${search}%`, currentUserId, cursor ?? 0, limit],
     );
     return result.rows;
 }

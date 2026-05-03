@@ -3,8 +3,11 @@ import { decrypt, encrypt } from "../services/encryptionService.js";
 
 export const createNewMessage = async (chatId, senderId, message, type, isRead, client = pool) => {
     const encryptedMessage = encrypt(message);
-    const result = await client.query('INSERT INTO messages (chat_id, sender_id, message, type, is_read, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id', [chatId, senderId, encryptedMessage, type ?? 'message', isRead ?? false, Date.now()]);
-    return result.rows[0].id;
+    const result = await client.query('INSERT INTO messages (chat_id, sender_id, message, type, is_read, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *', [chatId, senderId, encryptedMessage, type ?? 'message', isRead ?? false, Date.now()]);
+    
+    const newMessage = result.rows[0];
+    newMessage.message = message;
+    return newMessage;
 }
 
 export const deleteMessageById = async (messageId, client = pool) => {
