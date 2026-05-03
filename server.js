@@ -45,29 +45,33 @@ app.post('/setup', async (req, res) => {
     }
 
     await pool.query('CREATE DATABASE KLM_db;');
+    
     await pool.query('CREATE TABLE users (id SERIAL PRIMARY KEY, username VARCHAR(50) NOT NULL, email VARCHAR(100) UNIQUE NOT NULL, password VARCHAR(100) NOT NULL, profile_image VARCHAR(32))');
-    // TODO index
+    await pool.query('CREATE INDEX idx_users_email ON users (email)');
+
+    // TODO delete user_id, leave only id (as onlines table)
     await pool.query('CREATE TABLE profiles (id SERIAL PRIMARY KEY, user_id INT UNIQUE NOT NULL, description VARCHAR(200) NOT NULL)');
-    // TODO index
+    
+    // search only by userId, so doesn't need the index
     await pool.query('CREATE TABLE onlines (user_id INT PRIMARY KEY, is_online BOOLEAN NOT NULL, last_activity_time BIGINT NOT NULL)');
 
     await pool.query('CREATE TABLE posts (id SERIAL PRIMARY KEY, user_id INT NOT NULL, content VARCHAR(4000) NOT NULL, images VARCHAR(32)[] NOT NULL, users_who_liked_ids INT[], created_at BIGINT NOT NULL, edited_at BIGINT)');
+    await pool.query('CREATE INDEX idx_posts_user_id ON posts (user_id)');
 
     await pool.query('CREATE TABLE chats (row_id SERIAL PRIMARY KEY, user_id INT NOT NULL, chat_id SERIAL NOT NULL)');
+    await pool.query('CREATE INDEX idx_chats_user_id ON chats (user_id)');
+
     await pool.query("CREATE TABLE messages (id SERIAL PRIMARY KEY, chat_id INT NOT NULL, sender_id INT NOT NULL, message VARCHAR(4000) NOT NULL, type TEXT NOT NULL DEFAULT 'message', is_read BOOLEAN DEFAULT FALSE NOT NULL, created_at BIGINT NOT NULL, edited_at BIGINT)");
+    await pool.query('CREATE INDEX idx_messages_chat_id ON messages (chat_id)');
+
     await pool.query('CREATE TABLE calls (id SERIAL PRIMARY KEY, caller_id INT NOT NULL, answerer_id INT NOT NULL, start_time BIGINT, end_time BIGINT, created_at BIGINT NOT NULL)');
+    await pool.query('CREATE INDEX idx_calls_users_ids ON calls (caller_id, answerer_id)');
 
     await pool.query('CREATE TABLE fcm_tokens (id SERIAL PRIMARY KEY, user_id INT NOT NULL, fcm_token TEXT UNIQUE)');
     await pool.query('CREATE INDEX idx_fcm_tokens_user_id ON fcm_tokens (user_id)');
 
-    // TODO index
     await pool.query('CREATE TABLE refresh_tokens (id SERIAL PRIMARY KEY, user_id INT NOT NULL, token TEXT UNIQUE NOT NULL)');
-
-    await pool.query('CREATE INDEX idx_users_email ON users (email)');
-    await pool.query('CREATE INDEX idx_posts_user_id ON posts (user_id)');
-    await pool.query('CREATE INDEX idx_chats_user_id ON chats (user_id)');
-    await pool.query('CREATE INDEX idx_messages_chat_id ON messages (chat_id)');
-    await pool.query('CREATE INDEX idx_calls_users_ids ON calls (caller_id, answerer_id)');
+    await pool.query('CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens (user_id)');
 
     return res.json({ message: 'tables created' });
 });

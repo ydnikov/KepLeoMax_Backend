@@ -33,13 +33,16 @@ export const searchUsers = async (search, currentUserId, limit, cursor) => {
 }
 
 export const getUserByRefreshToken = async (refreshToken) => {
-    const result = await pool.query('SELECT * FROM users WHERE id = (SELECT user_id FROM refresh_tokens WHERE token = $1 LIMIT 1 OFFSET 0)', [refreshToken]);
+    const result = await pool.query(`
+        SELECT * FROM users WHERE id = 
+            (SELECT user_id FROM refresh_tokens WHERE token = $1)
+        `, [refreshToken]);
     return result.rows[0];
 }
 
 // validation
 export const haveDuplicateWithEmail = async (email) => {
-    const duplicates = await pool.query('SELECT * FROM users WHERE email = $1 LIMIT 1 OFFSET 0', [email]);
+    const duplicates = await pool.query('SELECT * FROM users WHERE email = $1 LIMIT 1', [email]);
     return duplicates.rows.length !== 0;
 }
 
