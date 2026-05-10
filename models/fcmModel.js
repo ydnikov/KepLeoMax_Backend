@@ -24,6 +24,10 @@ export const deleteFCMTokenById = async (id) => {
     await pool.query('DELETE FROM fcm_tokens WHERE id = $1', [id]);
 }
 
+export const deleteFCMTokens = async (tokens) => {
+    await pool.query('DELETE FROM fcm_tokens WHERE fcm_token = ANY($1)', [tokens]);
+}
+
 export const getAllTokensByUserId = async (userId) => {
     return (await pool.query('SELECT * FROM fcm_tokens WHERE user_id = $1', [userId])).rows;
 }

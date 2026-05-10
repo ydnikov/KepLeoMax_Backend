@@ -64,6 +64,7 @@ app.post('/setup', async (req, res) => {
     await pool.query("CREATE TABLE messages (id SERIAL PRIMARY KEY, chat_id INT NOT NULL, sender_id INT NOT NULL, message VARCHAR(4000) NOT NULL, type TEXT NOT NULL DEFAULT 'message', is_read BOOLEAN DEFAULT FALSE NOT NULL, created_at BIGINT NOT NULL, edited_at BIGINT)");
     await pool.query('CREATE INDEX idx_messages_chat_id ON messages (chat_id)');
 
+    // TODO better index (also for start_time and end_time)
     await pool.query('CREATE TABLE calls (id SERIAL PRIMARY KEY, caller_id INT NOT NULL, answerer_id INT NOT NULL, start_time BIGINT, end_time BIGINT, created_at BIGINT NOT NULL)');
     await pool.query('CREATE INDEX idx_calls_users_ids ON calls (caller_id, answerer_id)');
 

@@ -1,11 +1,10 @@
 import * as usersModel from '../models/usersModel.js';
 import * as callsModel from '../models/callsModel.js';
-import { sendNotification } from "./notificationService.js";
+import { cancelAllCallNotifcationOnOtherDevices, sendCallNotification, sendNotification } from "./notificationService.js";
 import convertUserToSend from "../utills/convertUser.js";
 import { onMessage } from './websocketService.js';
 
 export const sendOffer = async (io, data, userId) => {
-    console.log(`send_offer`);
     const offer = data.offer;
     const toUserId = data.to_user_id;
 
@@ -21,16 +20,10 @@ export const sendOffer = async (io, data, userId) => {
     await callsModel.insertNewCall(userId, toUserId);
 
     const user = await usersModel.getUserById(userId);
-    sendNotification(toUserId, '', '', {
-        type: 'incoming_call',
-        offer_sdp: offer.sdp,
-        offer_type: offer.type,
-        other_user: JSON.stringify(convertUserToSend(user))
-    });
+    sendCallNotification(toUserId, offer, user);
 }
 
 export const sendAnswer = async (io, data, userId) => {
-    console.log(`send_answer`);
     const answer = data.answer;
     const toUserId = data.to_user_id;
 
@@ -38,6 +31,7 @@ export const sendAnswer = async (io, data, userId) => {
         other_user_id: userId,
         answer: answer,
     });
+    cancelAllCallNotifcationOnOtherDevices(userId, toUserId);
 
     const call = await callsModel.getPendingCallOfUsers(toUserId, userId);
     if (!call) {
@@ -45,6 +39,7 @@ export const sendAnswer = async (io, data, userId) => {
         await endCall(io, data, data.to_user_id);
         return;
     }
+
     await callsModel.setStartTime(call.id);
 }
 
