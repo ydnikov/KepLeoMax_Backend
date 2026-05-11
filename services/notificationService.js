@@ -70,7 +70,8 @@ export const sendNotification = async (userId, title, body, externalData) => {
 const sendEach = async (messages) => {
     if (messages.length === 0) return;
 
-    const response = await getMessaging().sendEach(messages);
+    const now = Date.now().toString();
+    const response = await getMessaging().sendEach(messages.map(m => ({ ...m, data: { ...m.data, sent_at: now } })));
 
     const tokensToDelete = [];
     for (var i = 0; i < response.responses.length; i++) {
@@ -95,16 +96,4 @@ const sendEach = async (messages) => {
     }
 
     console.log(`successfuly sent ${response.successCount} messages, type: ${messages[0]['data']['type']}`);
-
-    // .then((_) => {
-    //     console.log(`Successfully sent message to userId ${userId}, type: ${externalData['type']}`);
-    // })
-    // .catch((error) => {
-    //     if (error.errorInfo.code == "messaging/registration-token-not-registered") {
-    //         console.log("Error sending message, token-not-registered:", token.fcm_token);
-    //         fcmModel.deleteFCMTokenById(token.id);
-    //     } else {
-    //         console.log("Error sending message:", error);
-    //     }
-    // });
 }
