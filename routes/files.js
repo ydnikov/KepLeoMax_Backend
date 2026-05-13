@@ -6,6 +6,8 @@ import path from 'path';
 import multer from "multer";
 import verifyJWT from '../middleware/verifyJWT.js';
 import sharp from 'sharp';
+import { validate } from '../middleware/validator.js';
+import { z } from 'zod';
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -23,22 +25,27 @@ const upload = multer({
 });
 
 router.post('/single', verifyJWT, upload.single('file'), (req, res) => {
-    res.status(201).json({ data: { path: req.file.filename } });
+    return res.status(201).json({ data: { path: req.file.filename } });
 });
 
 const __filename = url.fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-router.get('/:fileName', async (req, res) => {
+const getFileSchema = z.object({
+    params: z.object({
+        fileName: z.string()
+    }),
+    query: z.object({
+        w: z.coerce.number().int().positive().optional()
+    })
+});
+router.get('/:fileName', validate(getFileSchema), async (req, res) => {
     const fileName = req.params.fileName;
-    const w = req.query.w?.trim();
-    if (!fileName) {
-        res.status(400).json({ message: 'fileName param is required' });
-    }
+    const w = req.query.w;
 
     const imagePath = path.join(__dirname, '..', 'uploads', fileName);
 
-    if (w && !isNaN(w)) {
+    if (w) {
         const buffer = await sharp(imagePath)
             .resize(Number(w))
             .withMetadata()
@@ -46,11 +53,11 @@ router.get('/:fileName', async (req, res) => {
         res.send(buffer);
     } else {
         res.download(imagePath, (err) => {
-        if (err) {
-            console.error('Error downloading image:', err);
-            res.status(500).json({ message: `Error downloading image: ${err}` });
-        }
-    });
+            if (err) {
+                console.error('Error downloading image:', err);
+                res.status(500).json({ message: `Error downloading image: ${err}` });
+            }
+        });
     }
 });
 

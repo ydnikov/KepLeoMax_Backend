@@ -1,38 +1,37 @@
+import pool from "../db.js";
 import * as profilesModel from "../models/profilesModel.js";
 import * as usersModel from '../models/usersModel.js';
 import convertUserToSend from "../utills/convertUser.js";
 
 export const editProfile = async (req, res) => {
     const userId = req.userId;
-    const username = req.body.username?.trim();
-    const description = req.body.description?.trim();
-    const profileImage = req.body.profile_image?.trim();
+    const username = req.body.username;
+    const description = req.body.description;
+    const profileImage = req.body.profile_image;
     const updateImage = req.body.update_image;
 
-    // validations
-    if (!username || updateImage === undefined) {
-        return res.status(400).json({ message: 'username and update_image fields are required' });
-    } else if (updateImage !== false && updateImage !== true) {
-        return res.status(400).json({ message: 'update_image field must be boolean' });
-    }
-
     // update profile
-    const updatedProfile = await profilesModel.editProfileByUserId(userId, description ?? '');
-    const updateUser = await usersModel.updateUser(userId, username, profileImage, updateImage);
-    updatedProfile.user = convertUserToSend(updateUser, req);
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
 
-    res.status(200).json({ data: updatedProfile });
+        const updatedProfile = await profilesModel.editProfileByUserId(userId, description, client);
+        const updateUser = await usersModel.updateUser(userId, username, profileImage, updateImage, client);
+        updatedProfile.user = convertUserToSend(updateUser, req);
+        
+        await client.query('COMMIT');
+        
+        return res.status(200).json({ data: updatedProfile });;
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
 }
 
 export const getProfile = async (req, res) => {
-    const userId = req.query.userId?.trim();
-
-    // validations
-    if (!userId) {
-        return res.status(400).json({ message: 'userId param is required' });
-    } else if (isNaN(userId)) {
-        return res.status(400).json({ message: 'userId must be int' });
-    }
+    const userId = req.query.userId;
 
     // get profile
     const profile = await profilesModel.getProfileByUserId(userId);

@@ -1,11 +1,11 @@
 import express from 'express';
-import { addFCMToken, getUser, searchUsers, updateUser, deleteFCMToken } from '../controllers/userController.js';
+import { getUser, searchUsers } from '../controllers/userController.js';
+import { validate } from '../middleware/validator.js';
+import { getUserSchema } from '../schemas/userSchemas.js';
+import { searchUserSchema } from '../schemas/profileSchemas.js';
 const router = express.Router();
 
-router.get('/', getUser);
-router.get('/search', searchUsers);
-//router.post('/edit', updateUser);
-router.post('/fcmToken', addFCMToken);
-router.delete('/fcmToken', deleteFCMToken);
+router.get('/', validate(getUserSchema), getUser);
+router.get('/search', validate(searchUserSchema), searchUsers);
 
 export default router;

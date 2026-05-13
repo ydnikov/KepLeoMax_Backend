@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 const openAi = new OpenAI();
 
-export const ask = async (message, messages) => {
+export const askChatGPT = async (message, messages) => {
     try {
         const history = messages.map((msg) => ({
             role: msg.sender_id == process.env.CHAT_BOT_ID ? 'assistant' : 'user',
