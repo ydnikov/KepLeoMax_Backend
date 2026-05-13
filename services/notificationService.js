@@ -7,30 +7,32 @@ admin.initializeApp({
     credential: admin.credential.cert('./kepleomax-firebase-adminsdk.json')
 });
 
-export const cancelAllCallNotifcationOnOtherDevices = async (userId, otherUserId) => {
-    const tokens = await fcmModel.getAllTokensByUserId(userId);
+export const cancelAllCallNotifcationOnOtherDevices = async (userId, callId, ignoreToken) => {
+    const tokens = (await fcmModel.getAllTokensByUserId(userId));
     if (tokens.length < 2) return;
 
     const messages = tokens.map(token => ({
         data: {
-            type: 'cancel_call',
-            other_user_id: otherUserId.toString(),
+            type: 'stop_call',
+            only_hide_notification: (token.fcm_token === ignoreToken).toString(),
+            call_id: callId.toString(),
         },
         android: {
             priority: 'high',
         },
         token: token.fcm_token,
     }));
-    sendEach(messages);
+    await sendEach(messages);
 }
 
-export const sendCallNotification = async (otherUserId, offer, currentUser) => {
+export const sendCallNotification = async (otherUserId, callId, offer, currentUser) => {
     const tokens = await fcmModel.getAllTokensByUserId(otherUserId);
     if (!tokens || tokens.length === 0) return;
 
     const messages = tokens.map(token => ({
         data: {
             type: 'incoming_call',
+            id: callId.toString(),
             offer_sdp: offer.sdp,
             offer_type: offer.type,
             other_user: JSON.stringify(convertUserToSend(currentUser)),
@@ -40,7 +42,7 @@ export const sendCallNotification = async (otherUserId, offer, currentUser) => {
         },
         token: token.fcm_token,
     }));
-    sendEach(messages);
+    await sendEach(messages);
 }
 
 export const sendNotification = async (userId, title, body, externalData) => {
@@ -64,7 +66,7 @@ export const sendNotification = async (userId, title, body, externalData) => {
         },
         token: token.fcm_token,
     }));
-    sendEach(messages);
+    await sendEach(messages);
 }
 
 const sendEach = async (messages) => {

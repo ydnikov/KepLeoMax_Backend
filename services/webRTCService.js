@@ -1,7 +1,6 @@
 import * as usersModel from '../models/usersModel.js';
 import * as callsModel from '../models/callsModel.js';
 import { cancelAllCallNotifcationOnOtherDevices, sendCallNotification, sendNotification } from "./notificationService.js";
-import convertUserToSend from "../utills/convertUser.js";
 import { onMessage } from './websocketService.js';
 
 export const sendOffer = async (io, data, userId) => {
@@ -17,30 +16,35 @@ export const sendOffer = async (io, data, userId) => {
     //     return;
     // }
 
-    await callsModel.insertNewCall(userId, toUserId);
+    const newCall = await callsModel.getPendingCallOfUsers(userId, toUserId);
+    if (!newCall) {
+        console.log('Try to sendOffer, but there is no pedning call');
+        return;
+    }
 
     const user = await usersModel.getUserById(userId);
-    sendCallNotification(toUserId, offer, user);
+    sendCallNotification(toUserId, newCall.id, offer, user);
 }
 
 export const sendAnswer = async (io, data, userId) => {
     const answer = data.answer;
-    const toUserId = data.to_user_id;
+    const callId = data.call_id;
+    const fcmToken = data.fcm_token;
 
-    io.in([toUserId.toString()]).emit('webrtc_answer', {
-        other_user_id: userId,
-        answer: answer,
-    });
-    cancelAllCallNotifcationOnOtherDevices(userId, toUserId);
-
-    const call = await callsModel.getPendingCallOfUsers(toUserId, userId);
+    const call = await callsModel.getCallById(callId);
     if (!call) {
-        data.to_user_id = userId;
-        await endCall(io, data, data.to_user_id);
+        cancelAllCallNotifcationOnOtherDevices(userId, callId);
+        console.log('attempt to sendAnswer, but pendingCall is null');
         return;
     }
 
+    io.in([call.caller_id.toString()]).emit('webrtc_answer', {
+        id: call.id.toString(),
+        other_user_id: userId,
+        answer: answer,
+    });
     await callsModel.setStartTime(call.id);
+    await cancelAllCallNotifcationOnOtherDevices(userId, call.id, fcmToken);
 }
 
 export const sendICECandidate = (io, data, userId) => {
@@ -63,15 +67,24 @@ export const sendCameraStatus = (io, data, userId) => {
     });
 }
 
-export const endCall = async (io, data, userId) => {
-    const toUserId = data.to_user_id;
-    console.log(`end call, from: ${userId} to: ${toUserId}`);
+export const endCallIfExists = async (io, userId) => {
+    const call = await callsModel.getActiveOrPendingCallOfUser(userId);
+    if (!call) return;
 
-    io.in([toUserId.toString()]).emit('webrtc_end_call', {
+    await endCall(io, { call: call }, userId);
+}
+
+export const endCall = async (io, data, userId) => {
+    const fcmToken = data.fcm_token;
+    const call = data.call ?? await callsModel.getCallById(data.call_id);
+    const otherUserId = [call.answerer_id, call.caller_id].filter(id => id !== userId);
+
+    console.log(`end call, from: ${userId} to: ${otherUserId}`);
+    io.in([otherUserId.toString()]).emit('webrtc_end_call', {
         other_user_id: userId,
     });
+    cancelAllCallNotifcationOnOtherDevices(userId, call.id, fcmToken);
 
-    const call = await callsModel.getLastCallOfUsers(userId, toUserId);
     if (call && !call.end_time) {
         const endTime = await callsModel.setEndTimeTime(call.id);
         call.end_time = endTime;

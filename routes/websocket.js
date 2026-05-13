@@ -1,13 +1,13 @@
 import { rateLimiter } from '../middleware/tokenBucket.js';
 import { wsActivityDetectedSchema, wsDeleteMessageSchema, wsMessageSchema, wsReadAllSchema, wsReadBeforeTimeSchema, wsSendAnswerSchema, wsSendCameraStatusSchema, wsSendIceCandidateSchema, wsSendOfferSchema, wsSubsribeOnOnlineStatusUpdatesSchema as wsSubsribeOnOnlineStatusSchema, wsTypingActivitySchema } from '../schemas/websocketSchemas.js';
-import { sendAnswer, sendCameraStatus, sendICECandidate, sendOffer } from '../services/webRTCService.js';
+import { endCall, endCallIfExists, sendAnswer, sendCameraStatus, sendICECandidate, sendOffer } from '../services/webRTCService.js';
 import { changeOnlineStatus as updateOnlineStatus, onDeleteMessage, onMessage, onMessageToAi, onReadAll, onReadBeforeTime, typingActivity } from '../services/websocketService.js';
 
 const withValidation = (socket, schema, callback) => (data) => {
     const result = schema.safeParse(data);
     if (!result.success) {
         const errors = (result.error.issues ?? result.error.errors ?? []).map(error => ({ field: error.path.join('.'), message: error.message }));
-        console.error(`ws validation error: ${errors}`);
+        console.error(`ws validation error: ${JSON.stringify(errors)}`);
         return socket.emit('validation_error', {
             errors: errors,
         });
@@ -95,6 +95,7 @@ const webSocket = (io, socket) => {
     socket.on('disconnect', () => {
         console.log(`user ${socket.id} with id ${userId} disconnected`);
         updateOnlineStatus(io, false, userId);
+        endCallIfExists(io, userId);
     });
 }
 

@@ -38,11 +38,12 @@ export const wsSendOfferSchema = z.object({
 });
 
 export const wsSendAnswerSchema = z.object({
-    to_user_id: z.number().int().positive(),
+    call_id: z.string(),
     answer: z.object({
         sdp: z.string().nullable(),
         type: z.string().nullable(),
     }),
+    fcm_token: z.string().nullish()
 });
 
 export const wsSendIceCandidateSchema = z.object({

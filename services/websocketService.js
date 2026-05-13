@@ -127,6 +127,7 @@ export const onMessage = async (io, data, userId) => {
                 sendNotification(otherUserId, user.username, 'Missed call', {
                     chat_id: chatId.toString(),
                     type: 'new_missed_call',
+                    call_id: call.id.toString(),
                     ids: JSON.stringify([newMessage.id]),
                     other_user: JSON.stringify(convertUserToSend(user))
                 });
