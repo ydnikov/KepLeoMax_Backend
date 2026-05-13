@@ -40,7 +40,7 @@ app.use(rateLimitMiddleware);
 
 // Routes
 app.post('/setup', async (req, res) => {
-    await pool.query('UPDATE calls SET end_time = $1 WHERE end_time IS NULL', [Date.now()]);
+    // await pool.query('UPDATE calls SET end_time = $1 WHERE end_time IS NULL', [Date.now()]);
 
     if (req.body?.key !== process.env.SETUP_KEY) {
         return res.sendStatus(403);
