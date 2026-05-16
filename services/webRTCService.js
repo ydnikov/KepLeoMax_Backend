@@ -53,7 +53,7 @@ export const sendICECandidate = async (io, data, userId) => {
 
     const otherUserId = call.answerer_id === userId ? call.caller_id : call.answerer_id;
     io.in([otherUserId.toString()]).emit('webrtc_ice_candidate', {
-        other_user_id: userId,
+        call_id: callId,
         candidate: candidate,
     });
 }
