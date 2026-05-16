@@ -6,6 +6,12 @@ export const callStatusSchema = z.object({
     }) 
 });
 
+export const acceptCallSchema = z.object({ 
+    query: z.object({
+        call_id: z.string()
+    }) 
+});
+
 export const startCallSchema = z.object({ 
     query: z.object({
         other_user_id: z.coerce.number().int().positive()

@@ -40,7 +40,7 @@ export const setStartTime = async (callId) => {
     return startTime;
 }
 
-export const setEndTimeTime = async (callId) => {
+export const setEndTime = async (callId) => {
     const endTime = Date.now();
     await pool.query('UPDATE calls SET end_time = $2 WHERE id = $1', [callId, endTime]);
     return endTime;

@@ -30,7 +30,7 @@ export const wsSubsribeOnOnlineStatusUpdatesSchema = z.object({
 
 // WebRTC
 export const wsSendOfferSchema = z.object({
-    to_user_id: z.number().int().positive(),
+    call_id: z.string(),
     offer: z.object({
         sdp: z.string().nullable(),
         type: z.string().nullable(),
@@ -47,7 +47,7 @@ export const wsSendAnswerSchema = z.object({
 });
 
 export const wsSendIceCandidateSchema = z.object({
-    to_user_id: z.number().int().positive(),
+    call_id: z.string(),
     candidate: z.object({
         candidate: z.string().nullable(),
         sdpMid: z.string().nullable(),
@@ -56,6 +56,6 @@ export const wsSendIceCandidateSchema = z.object({
 });
 
 export const wsSendCameraStatusSchema = z.object({
-    to_user_id: z.number().int().positive(),
+    call_id: z.string(),
     status: z.enum(['off', 'back', 'front']),
 });

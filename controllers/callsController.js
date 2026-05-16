@@ -8,7 +8,7 @@ export const getStatufOfCall = async (req, res) => {
     const callId = req.query.call_id;
 
     const call = await callsModel.getCallById(callId);
-    if (!call && (call.caller_id !== userId && call.answerer_id !== userId)) {
+    if (!call || (call.caller_id !== userId && call.answerer_id !== userId)) {
         return res.sendStatus(403);
     }
 
@@ -23,11 +23,28 @@ export const getStatufOfCall = async (req, res) => {
     return res.status(200).json({ data: { status: status } });
 }
 
+export const acceptCall = async (req, res) => {
+    const userId = req.userId;
+    const callId = req.query.call_id;
+
+    const call = await callsModel.getCallById(callId);
+    if (!call || (call.caller_id !== userId && call.answerer_id !== userId)) {
+        return res.sendStatus(403);
+    }
+
+    if (call.end_time || call.start_time) {
+        return res.sendStatus(409);
+    }
+
+    await callsModel.setStartTime(callId);
+    return res.sendStatus(200);
+}
+
 export const newCall = async (req, res) => {
     const userId = req.userId;
     const otherUserId = req.query.other_user_id;
 
-    // TODO optimize
+    // TODO optimize 2 queries to 1
     const activeCall = await callsModel.getActiveOrPendingCallOfUser(userId);
     if (activeCall) {
         return res.status(409).json({ message: "You can't have more than 1 active call at once" });
@@ -47,12 +64,18 @@ export const newCall = async (req, res) => {
 
 export const declineCall = async (req, res) => {
     const userId = req.userId;
-    const id = req.query.call_id;
+    const callId = req.query.call_id;
     const fcmToken = req.query.fcm_token;
 
-    console.log(`decline call via api, userId: ${userId}, id: ${id}`);
+    const call = await callsModel.getCallById(callId);
+    if (!call || (call.caller_id !== userId && call.answerer_id !== userId)) {
+        console.log('Failed attempt to end call');
+        return res.status(403);
+    }
 
-    await endCall(io, { call_id: id, fcm_token: fcmToken }, userId);
+    console.log(`decline call, userId: ${userId}, callId: ${callId}`);
+
+    await endCall(io, { call: call, fcm_token: fcmToken }, userId);
 
     return res.sendStatus(200);
 }
