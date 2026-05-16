@@ -1,7 +1,9 @@
 import * as usersModel from '../models/usersModel.js';
 import * as callsModel from '../models/callsModel.js';
-import { cancelAllCallNotifcationOnOtherDevices, sendCallNotification, sendNotification } from "./notificationService.js";
+import { cancelAllCallNotifcationOnOtherDevices, sendCallNotification } from "./notificationService.js";
 import { onMessage } from './websocketService.js';
+
+export const offersCache = new Map();
 
 export const sendOffer = async (io, data, userId) => {
     const offer = data.offer;
@@ -16,13 +18,13 @@ export const sendOffer = async (io, data, userId) => {
 
     const currentUser = await usersModel.getUserById(userId);
     const otherUserId = call.answerer_id;
-    sendCallNotification(otherUserId, call.id, offer, currentUser);
+    offersCache[callId] = offer;
+    sendCallNotification(otherUserId, call.id, currentUser);
 }
 
 export const sendAnswer = async (io, data, userId) => {
     const answer = data.answer;
     const callId = data.call_id;
-    const fcmToken = data.fcm_token;
 
     // call must be accept via /calls/accept endpoint
     const call = await callsModel.getCallById(callId);
@@ -33,11 +35,10 @@ export const sendAnswer = async (io, data, userId) => {
 
     io.in([call.caller_id.toString()]).emit('webrtc_answer', {
         id: call.id.toString(),
-        other_user_id: userId,
+        other_user_id: userId, // TODO need this?
         answer: answer,
     });
-    await callsModel.setStartTime(call.id);
-    await cancelAllCallNotifcationOnOtherDevices(userId, call.id, fcmToken);
+    await cancelAllCallNotifcationOnOtherDevices(userId, call.id, call.answerer_fcm_token);
 }
 
 // TODO optimize? pg call each time
@@ -90,6 +91,8 @@ export const endCall = async (io, data, userId) => {
     const call = data.call;
     const otherUserId = call.caller_id !== userId ? call.caller_id : call.answerer_id;
 
+    offersCache.delete(call.id);
+
     // end call on every currentUser's device
     if (!call.start_time) {
         cancelAllCallNotifcationOnOtherDevices(userId, call.id, fcmToken);
@@ -103,7 +106,7 @@ export const endCall = async (io, data, userId) => {
 
     const endTime = await callsModel.setEndTime(call.id);
     call.end_time = endTime;
-    
+
     // send ws event
     console.log(`end call, from: ${userId} to: ${otherUserId}`);
     io.in([otherUserId.toString()]).emit('webrtc_end_call', {

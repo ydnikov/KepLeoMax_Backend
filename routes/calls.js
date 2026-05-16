@@ -1,12 +1,14 @@
 import express from 'express';
-import { acceptCall, declineCall, getStatufOfCall as getStatusOfCall, newCall } from '../controllers/callsController.js';
+import { acceptCall, declineCall, getOffer as getOfferOfCall, getStatufOfCall as getStatusOfCall, newCall } from '../controllers/callsController.js';
 import { validate } from '../middleware/validator.js';
-import { acceptCallSchema, callStatusSchema, declineCallSchema, startCallSchema as newCallSchema } from '../schemas/callsSchema.js';
+import { acceptCallSchema, callStatusSchema, declineCallSchema, getOfferOfCallSchema, startCallSchema as newCallSchema } from '../schemas/callsSchema.js';
 const router = express.Router();
 
-router.get('/status', validate(callStatusSchema), getStatusOfCall);
+// TODO should they all be get?
+router.get('/new', validate(newCallSchema), newCall);
 router.get('/accept', validate(acceptCallSchema), acceptCall);
-router.get('/newCall', validate(newCallSchema), newCall);
-router.get('/declineCall', validate(declineCallSchema), declineCall);
+router.get('/status', validate(callStatusSchema), getStatusOfCall);
+router.get('/getOffer', validate(getOfferOfCallSchema), getOfferOfCall);
+router.get('/decline', validate(declineCallSchema), declineCall);
 
 export default router;

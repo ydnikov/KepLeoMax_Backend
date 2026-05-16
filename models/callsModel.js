@@ -1,8 +1,8 @@
 import pool from "../db.js";
 
 // base methods
-export const insertNewCall = async (callerId, answererId, isMissed = false) => {
-    const result = await pool.query('INSERT INTO calls (caller_id, answerer_id, created_at, end_time) VALUES ($1, $2, $3, $4) RETURNING *', [callerId, answererId, Date.now(), isMissed ? Date.now() : null]);
+export const insertNewCall = async (callerId, callerFcm, answererId, isMissed = false) => {
+    const result = await pool.query('INSERT INTO calls (caller_id, caller_fcm_token, answerer_id, created_at, end_time) VALUES ($1, $2, $3, $4, $5) RETURNING *', [callerId, callerFcm, answererId, Date.now(), isMissed ? Date.now() : null]);
     return result.rows[0];
 }
 
@@ -34,9 +34,9 @@ export const getLastCallOfUsers = async (userId1, userId2) => {
 }
 
 // setters
-export const setStartTime = async (callId) => {
+export const setStartTime = async (callId, answererFcm) => {
     const startTime = Date.now();
-    await pool.query('UPDATE calls SET start_time = $2 WHERE id = $1', [callId, startTime]);
+    await pool.query('UPDATE calls SET start_time = $2, answerer_fcm_token = $3 WHERE id = $1', [callId, startTime, answererFcm]);
     return startTime;
 }
 

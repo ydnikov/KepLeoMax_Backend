@@ -95,7 +95,7 @@ const webSocket = (io, socket) => {
     socket.on('disconnect', () => {
         console.log(`user ${socket.id} with id ${userId} disconnected`);
         updateOnlineStatus(io, false, userId);
-        endCallIfExists(io, userId);
+        // endCallIfExists(io, userId);
     });
 }
 

@@ -25,16 +25,14 @@ export const cancelAllCallNotifcationOnOtherDevices = async (userId, callId, ign
     await sendEach(messages);
 }
 
-export const sendCallNotification = async (otherUserId, callId, offer, currentUser) => {
-    const tokens = await fcmModel.getAllTokensByUserId(otherUserId);
+export const sendCallNotification = async (toUser, callId, currentUser) => {
+    const tokens = await fcmModel.getAllTokensByUserId(toUser);
     if (!tokens || tokens.length === 0) return;
 
     const messages = tokens.map(token => ({
         data: {
             type: 'incoming_call',
             id: callId.toString(),
-            offer_sdp: offer.sdp,
-            offer_type: offer.type,
             other_user: JSON.stringify(convertUserToSend(currentUser)),
         },
         android: {
@@ -88,7 +86,7 @@ const sendEach = async (messages) => {
                 console.log(`Invalid token: ${tokenFaulty}`);
                 tokensToDelete.push(tokenFaulty);
             } else {
-                console.error(`Failed to send notification to ${tokenFaulty}:`, error.code);
+                console.error(`Failed to send notification to ${tokenFaulty}:`, error.code, error.message);
             }
         }
     }

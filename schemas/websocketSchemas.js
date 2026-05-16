@@ -43,7 +43,6 @@ export const wsSendAnswerSchema = z.object({
         sdp: z.string().nullable(),
         type: z.string().nullable(),
     }),
-    fcm_token: z.string().nullish()
 });
 
 export const wsSendIceCandidateSchema = z.object({

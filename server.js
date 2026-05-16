@@ -40,20 +40,30 @@ app.use(rateLimitMiddleware);
 
 // Routes
 app.post('/setup', async (req, res) => {
-    // await pool.query('UPDATE calls SET end_time = $1 WHERE end_time IS NULL', [Date.now()]);
+    // try {
+    //     await pool.query('BEGIN');
+    //     await pool.query("ALTER TABLE calls ADD COLUMN caller_fcm_token TEXT NOT NULL DEFAULT ''");
+    //     await pool.query("ALTER TABLE calls ALTER COLUMN caller_fcm_token DROP DEFAULT");
 
+    //     await pool.query("ALTER TABLE calls ADD COLUMN answerer_fcm_token TEXT");
+    //     await pool.query('COMMIT');
+    // } catch (e) {
+    //     await pool.query('ROLLBACK');
+    //     throw e;
+    // }
+    
     if (req.body?.key !== process.env.SETUP_KEY) {
         return res.sendStatus(403);
     }
 
     await pool.query('CREATE DATABASE KLM_db;');
-    
+
     await pool.query('CREATE TABLE users (id SERIAL PRIMARY KEY, username VARCHAR(50) NOT NULL, email VARCHAR(100) UNIQUE NOT NULL, password VARCHAR(100) NOT NULL, profile_image VARCHAR(32))');
     await pool.query('CREATE INDEX idx_users_email ON users (email)');
 
     // TODO delete user_id, leave only id (as onlines table)
     await pool.query('CREATE TABLE profiles (id SERIAL PRIMARY KEY, user_id INT UNIQUE NOT NULL, description VARCHAR(200) NOT NULL)');
-    
+
     // search only by userId, so doesn't need the index
     await pool.query('CREATE TABLE onlines (user_id INT PRIMARY KEY, is_online BOOLEAN NOT NULL, last_activity_time BIGINT NOT NULL)');
 
@@ -67,7 +77,7 @@ app.post('/setup', async (req, res) => {
     await pool.query('CREATE INDEX idx_messages_chat_id ON messages (chat_id)');
 
     // TODO better index (also for start_time and end_time)
-    await pool.query('CREATE TABLE calls (id SERIAL PRIMARY KEY, caller_id INT NOT NULL, answerer_id INT NOT NULL, start_time BIGINT, end_time BIGINT, created_at BIGINT NOT NULL)');
+    await pool.query('CREATE TABLE calls (id SERIAL PRIMARY KEY, caller_id INT NOT NULL, caller_fcm_token TEXT NOT NULL, answerer_id INT NOT NULL, answerer_fcm_token TEXT, start_time BIGINT, end_time BIGINT, created_at BIGINT NOT NULL)');
     await pool.query('CREATE INDEX idx_calls_users_ids ON calls (caller_id, answerer_id)');
 
     await pool.query('CREATE TABLE fcm_tokens (id SERIAL PRIMARY KEY, user_id INT NOT NULL, fcm_token TEXT UNIQUE)');
