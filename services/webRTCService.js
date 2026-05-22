@@ -76,9 +76,9 @@ export const sendCameraStatus = async (io, data, userId) => {
     });
 }
 
-export const endCallIfExists = async (io, userId) => {
+export const endCallIfExists = async (io, userId, fcmToken) => {
     const call = await callsModel.getActiveOrPendingCallOfUser(userId);
-    if (!call) {
+    if (!call || (call.caller_fcm_token !== fcmToken && call.answerer_fcm_token !== fcmToken)) {
         console.log('Failed attempt to endCallIfExists');
         return;
     }
@@ -115,6 +115,8 @@ export const endCall = async (io, data, userId) => {
 
     // send chat message
     call.notify_other_user = userId === call.caller_id;
+    call.caller_fcm_token = undefined;
+    call.answerer_fcm_token = undefined;
     const newData = {
         recipient_id: call.answerer_id,
         call: call,

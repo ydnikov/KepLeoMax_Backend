@@ -97,5 +97,10 @@ export const declineCall = async (req, res) => {
 
     await endCall(io, { call: call, fcm_token: fcmToken }, userId);
 
+    // even with end_time endCall should be callde, but we have to return 409
+    if (call.end_time) {
+        return res.sendStatus(409);
+    }
+
     return res.sendStatus(200);
 }

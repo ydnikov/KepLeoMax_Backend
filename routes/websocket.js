@@ -1,6 +1,6 @@
 import { rateLimiter } from '../middleware/tokenBucket.js';
 import { wsActivityDetectedSchema, wsDeleteMessageSchema, wsMessageSchema, wsReadAllSchema, wsReadBeforeTimeSchema, wsSendAnswerSchema, wsSendCameraStatusSchema, wsSendIceCandidateSchema, wsSendOfferSchema, wsSubsribeOnOnlineStatusUpdatesSchema as wsSubsribeOnOnlineStatusSchema, wsTypingActivitySchema } from '../schemas/websocketSchemas.js';
-import { endCallIfExists, sendAnswer, sendCameraStatus, sendICECandidate, sendOffer } from '../services/webRTCService.js';
+import { endCallIfExists as endCallIfShould, sendAnswer, sendCameraStatus, sendICECandidate, sendOffer } from '../services/webRTCService.js';
 import { changeOnlineStatus as updateOnlineStatus, onDeleteMessage, onMessage, onMessageToAi, onReadAll, onReadBeforeTime, typingActivity } from '../services/websocketService.js';
 
 const withValidation = (socket, schema, callback) => (data) => {
@@ -17,6 +17,7 @@ const withValidation = (socket, schema, callback) => (data) => {
 
 const webSocket = (io, socket) => {
     const userId = socket.userId;
+    const fcmToken = socket.handshake.auth.fcm_token;
     const ip = socket.handshake.address;
 
     if (!userId) {
@@ -95,7 +96,7 @@ const webSocket = (io, socket) => {
     socket.on('disconnect', () => {
         console.log(`user ${socket.id} with id ${userId} disconnected`);
         updateOnlineStatus(io, false, userId);
-        // endCallIfExists(io, userId);
+        endCallIfShould(io, userId, fcmToken);
     });
 }
 

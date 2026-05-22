@@ -11,10 +11,9 @@ export const cancelAllCallNotifcationOnOtherDevices = async (userId, callId, ign
     const tokens = (await fcmModel.getAllTokensByUserId(userId));
     if (tokens.length < 2) return;
 
-    const messages = tokens.map(token => ({
+    const messages = tokens.filter(t => t.fcm_token !== ignoreToken).map(token => ({
         data: {
-            type: 'stop_call',
-            only_hide_notification: (token.fcm_token === ignoreToken).toString(),
+            type: 'stop_all_calls_on_this_device',
             call_id: callId.toString(),
         },
         android: {
