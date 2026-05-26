@@ -17,6 +17,7 @@ import messagesRouter from './routes/messages.js';
 import chatsRouter from './routes/chats.js';
 import callsRouter from './routes/calls.js';
 import fcmRouter from './routes/fcm.js';
+import channelRouter from './routes/channels.js';
 import webSocketRouter from './routes/websocket.js';
 import { rateLimitMiddleware } from './middleware/tokenBucket.js';
 
@@ -40,6 +41,10 @@ app.use(rateLimitMiddleware);
 
 // Routes
 app.post('/setup', async (req, res) => {
+    // TODO indexes
+    // await pool.query('CREATE TABLE channels (id INT PRIMARY KEY, owner_id INT NOT NULL, channel_name TEXT NOT NULL, description VARCHAR(200) NOT NULL DEFAULT '', tag VARCHAR(32) UNIQUE NOT NULL, image_url TEXT, is_official BOOLEAN NOT NULL DEFAULT FALSE, created_at BIGINT NOT NULL)');
+    // await pool.query('ALTER TABLE chats ADD CONSTRAINT chats_user_chat_unique UNIQUE (user_id, chat_id)');
+
     // try {
     //     await pool.query('BEGIN');
     //     await pool.query("ALTER TABLE calls ADD COLUMN caller_fcm_token TEXT NOT NULL DEFAULT ''");
@@ -51,7 +56,7 @@ app.post('/setup', async (req, res) => {
     //     await pool.query('ROLLBACK');
     //     throw e;
     // }
-    
+
     if (req.body?.key !== process.env.SETUP_KEY) {
         return res.sendStatus(403);
     }
@@ -70,7 +75,7 @@ app.post('/setup', async (req, res) => {
     await pool.query('CREATE TABLE posts (id SERIAL PRIMARY KEY, user_id INT NOT NULL, content VARCHAR(4000) NOT NULL, images VARCHAR(32)[] NOT NULL, users_who_liked_ids INT[], created_at BIGINT NOT NULL, edited_at BIGINT)');
     await pool.query('CREATE INDEX idx_posts_user_id ON posts (user_id)');
 
-    await pool.query('CREATE TABLE chats (row_id SERIAL PRIMARY KEY, user_id INT NOT NULL, chat_id SERIAL NOT NULL)');
+    await pool.query('CREATE TABLE chats (row_id SERIAL PRIMARY KEY, user_id INT NOT NULL, chat_id SERIAL NOT NULL, CONSTRAINT chats_user_chat_unique UNIQUE (user_id, chat_id))');
     await pool.query('CREATE INDEX idx_chats_user_id ON chats (user_id)');
 
     await pool.query("CREATE TABLE messages (id SERIAL PRIMARY KEY, chat_id INT NOT NULL, sender_id INT NOT NULL, message VARCHAR(4000) NOT NULL, type TEXT NOT NULL DEFAULT 'message', is_read BOOLEAN DEFAULT FALSE NOT NULL, created_at BIGINT NOT NULL, edited_at BIGINT)");
@@ -101,6 +106,7 @@ app.use('/api/posts', postsRouter);
 app.use('/api/messages', messagesRouter);
 app.use('/api/chats', chatsRouter);
 app.use('/api/calls', callsRouter);
+app.use('/api/channel', channelRouter);
 
 // Error handlers
 app.use(notFound);

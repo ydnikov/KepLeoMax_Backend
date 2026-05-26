@@ -1,3 +1,4 @@
+// TODO pass userId, not req
 const convertUserToSend = (user, req) => {
     if (!user) return null;
 

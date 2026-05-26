@@ -1,0 +1,15 @@
+import express from 'express';
+import { validate } from '../middleware/validator.js';
+import { editChannelSchema, newChannelSchema, subsCountSchema, subsribeOnChannelSchema as subscribeOnChannelSchema, subsSchema, unsubsribeFromChannelSchema as unsubscribeFromChannelSchema } from '../schemas/channelsSchemas.js';
+import { createNewChannel, editChannel, getSubscribers, getSubscribersCount, subscribe as subscribeOnChannel, unsubscribe as unsubscribeFromChannel } from '../controllers/channelsController.js';
+
+const router = express.Router();
+
+router.post('/new', validate(newChannelSchema), createNewChannel);
+router.put('/edit', validate(editChannelSchema), editChannel);
+router.get('/subsCount', validate(subsCountSchema), getSubscribersCount);
+router.get('/subs', validate(subsSchema), getSubscribers);
+router.post('/subscribe', validate(subscribeOnChannelSchema), subscribeOnChannel);
+router.delete('/unsubscribe', validate(unsubscribeFromChannelSchema), unsubscribeFromChannel);
+
+export default router;

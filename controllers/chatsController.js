@@ -51,8 +51,12 @@ export const getChats = async (req, res) => {
     for (let i = 0; i < chats.length; i++) {
         // set other_user
         const otherUser = await usersModel.getUserById(chats[i].other_user_id);
-        chats[i].otherUserId = undefined;
-        chats[i].other_user = convertUserToSend(otherUser, req);
+        delete chats[i].otherUserId;
+        if (otherUser) {
+            chats[i].other_user = convertUserToSend(otherUser, req);
+        } else {
+            chats[i].other_user = null;
+        }
 
         // set last_message
         const lastMessage = (await messagesModel.getAllMessagesByChatId(chats[i].id, 1, null))[0];
@@ -71,8 +75,21 @@ export const getChats = async (req, res) => {
             chats[i].last_message = null;
             chats[i].unread_count = 0;
         }
+
+        // delete channel fields if it's not a channel
+        if (!chats[i].owner_id) {
+            chats[i].is_channel = false;
+            delete chats[i].owner_id;
+            delete chats[i].channel_name;
+            delete chats[i].image_url;
+            delete chats[i].is_official;
+        } else {
+            chats[i].is_channel = true;
+            chats[i].role = chats[i].owner_id === userId ? 'owner' : 'subscriber';
+            delete chats[i].owner_id;
+        }
     }
-    chats.sort((a, b) => (b.last_message?.created_at ?? 0) - (a.last_message?.created_at ?? 0));
+    chats.sort((a, b) => (b.last_message?.created_at ?? b.created_at ?? 0) - (a.last_message?.created_at ?? a.created_at ?? 0));
 
     return res.status(200).json({ data: chats });
 }
