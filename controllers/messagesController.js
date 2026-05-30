@@ -8,7 +8,7 @@ export const getMessagesByChatId = async (req, res) => {
     const cursor = req.query.cursor; // int, messageId
 
     const chat = await chatsModel.getChatById(chatId);
-    if (!chat.user_ids.includes(userId)) {
+    if (!chat.owner_id && !(chat.user_ids?.includes(userId) ?? false)) {
         return res.sendStatus(403);
     }
 

@@ -31,6 +31,18 @@ export const typingActivity = async (io, data, userId) => {
     });
 }
 
+/// channels
+export const onSubscribeOnChannel = async (io, data, userId) => {
+    const channel = data.channel;
+    io.in(userId.toString()).emit('subscribe_on_channel', { channel: channel });
+}
+
+export const onUnsubscribeFromChannel = async (io, data, userId) => {
+    const channelId = data.channel_id;
+    const subsCount = data.subs_count;
+    io.in(userId.toString()).emit('unsubscribe_from_channel', { channel_id: channelId, subs_count: subsCount });
+}
+
 /// messages
 export const onReadBeforeTime = async (io, data, userId) => {
     const chatId = data.chat_id;
@@ -95,7 +107,6 @@ export const onMessage = async (io, data, userId) => {
         console.log(`chat id: ${chatId}, userId: ${userId}, otherUserId: ${otherUserId}`);
         const callIsMissed = call && !call.start_time && call.end_time;
         const newMessage = await messagesModel.createNewMessage(chatId, userId, message, type, call != null && !callIsMissed, client);
-
 
         newMessage.is_current_user = true;
         newMessage.other_user_id = otherUserId;

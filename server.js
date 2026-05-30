@@ -112,7 +112,6 @@ app.use('/api/channel', channelRouter);
 app.use(notFound);
 app.use(errorHandler);
 
-// 192.168.0.106 or 0.0.0.0 if runs with docker
 const expressServer = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`)
 });

@@ -14,14 +14,22 @@ export const createNewChat = async (userId1, userId2, client = pool) => {
     return result.rows[0].chat_id;
 }
 
+// TODO optimize
 export const getChatById = async (chatId) => {
+    const channelResult = await pool.query('SELECT * FROM channels WHERE id = $1', [chatId]);
+    if (channelResult.rows.length > 0) {
+        channelResult.rows[0].is_channel = true;
+        return channelResult.rows[0];
+    }
+
     const result = await pool.query('SELECT * FROM chats WHERE chat_id = $1', [chatId]);
     if (result.rows.length === 0) {
         return null;
     } else {
         const chat = {
             id: Number(chatId),
-            user_ids: result.rows.map(row => row.user_id)
+            user_ids: result.rows.map(row => row.user_id),
+            is_channel: false
         };
         return chat;
     }

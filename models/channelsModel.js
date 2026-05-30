@@ -12,6 +12,7 @@ export const createNewChannel = async (ownerId, name, description, tag, imageUrl
 
         await connection.query('COMMIT');
 
+        result.rows[0].is_channel = true;
         return result.rows[0];
     } catch (e) {
         await connection.query('ROLLBACK');
@@ -26,12 +27,19 @@ export const editChannel = async (channelId, userId, name, description, tag, ima
         if (!channel) return 404;
         return 403;
     }
-
+    result.rows[0].is_channel = true;
     return result.rows[0];
 }
 
 export const getChannel = async (channelId) => {
     const result = await pool.query('SELECT * FROM channels WHERE id = $1', [channelId]);
+    result.rows[0].is_channel = true;
+    return result.rows[0];
+}
+
+export const getChannelByTag = async (tag) => {
+    const result = await pool.query('SELECT * FROM channels WHERE tag = $1', [tag]);
+    result.rows[0].is_channel = true;
     return result.rows[0];
 }
 
@@ -52,6 +60,11 @@ export const getSubscribers = async (channelId, limit, cursor) => {
     return result.rows;
 }
 
+export const isUserSubscribed = async (userId, channelId) => {
+    const result = await pool.query('SELECT FROM chats WHERE user_id = $1 AND chat_id = $2', [userId, channelId]);
+    return result.rowCount > 0;
+}
+
 export const subscribe = async (userId, channelId) => {
     const result = await pool.query(`
         INSERT INTO chats (user_id, chat_id)
@@ -62,6 +75,7 @@ export const subscribe = async (userId, channelId) => {
     return result.rowCount === 1;
 }
 
+// TODO check that userId is not owner
 export const unsubscribe = async (userId, channelId) => {
     const result = await pool.query('DELETE FROM chats WHERE user_id = $1 AND chat_id = $2', [userId, channelId]);
     return result.rowCount === 1;

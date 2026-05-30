@@ -2,31 +2,43 @@ import * as chatsModel from '../models/chatsModel.js'
 import * as usersModel from '../models/usersModel.js';
 import convertUserToSend from '../utills/convertUser.js';
 import * as messagesModel from '../models/messagesModel.js'
+import * as channelsModel from '../models/channelsModel.js'
 
+// TODO optimize
 export const getChat = async (req, res) => {
     const userId = req.userId;
-    const chatId = req.query.chatId?.trim();
+    const chatId = req.params.chatId?.trim();
 
     // get chat
-    const chat = await chatsModel.getChatById(chatId);
+    const chat = isNaN(Number(chatId)) ? await channelsModel.getChannelByTag(chatId) : await chatsModel.getChatById(chatId);
     if (!chat) {
-        return res.status(404).json({ message: `chat with id ${chatId} not found` });
-    } else if (!chat.user_ids.includes(userId)) {
+        return res.status(404).json({ message: `chat with id ${chatId} was not found` });
+    } else if (!chat.owner_id && !(chat.user_ids?.includes(userId) ?? false)) {
         return res.status(403).json({ message: `user has no permission to this chat` });
     }
 
+    const isChannel = chat.is_channel;
+
     // set other_user
-    const otherUser = convertUserToSend(await usersModel.getUserById(chat.user_ids.filter(id => id != userId)[0]), req);
-    chat.user_ids = undefined;
-    chat.other_user = otherUser;
+    var otherUser;
+    if (!isChannel) {
+        otherUser = convertUserToSend(await usersModel.getUserById(chat.user_ids.filter(id => id != userId)[0]), req);
+        chat.user_ids = undefined;
+        chat.other_user = otherUser;
+    }
 
     // set last_message
     const lastMessage = (await messagesModel.getAllMessagesByChatId(chat.id, 1, null))[0];
 
     // set unread_count
     if (lastMessage) {
-        const senderUser = lastMessage.sender_id === otherUser.id ? otherUser : convertUserToSend(await usersModel.getUserById(lastMessage.sender_id), req);
-        lastMessage.user = senderUser;
+        if (!isChannel) {
+            const senderUser = lastMessage.sender_id === userId ? convertUserToSend(await usersModel.getUserById(lastMessage.sender_id), req) : otherUser;
+            lastMessage.user = senderUser;
+        } else {
+            lastMessage.user = convertUserToSend(await usersModel.getUserById(lastMessage.sender_id), req);
+        }
+
         chat.last_message = lastMessage;
         if (lastMessage.sender_id === userId) {
             chat.unread_count = 0;
@@ -36,6 +48,11 @@ export const getChat = async (req, res) => {
     } else {
         chat.last_message = null;
         chat.unread_count = 0;
+    }
+
+    if (isChannel) {
+        chat.role = chat.owner_id === userId ? 'owner' :
+            (await channelsModel.isUserSubscribed(userId, chat.id)) ? 'subscriber' : 'none';
     }
 
     return res.status(200).json({ data: chat });

@@ -1,4 +1,6 @@
 import * as channelsModel from '../models/channelsModel.js';
+import { io } from '../server.js';
+import { onSubscribeOnChannel, onUnsubscribeFromChannel } from '../services/websocketService.js';
 import convertUserToSend from '../utills/convertUser.js';
 
 export const createNewChannel = async (req, res) => {
@@ -9,7 +11,8 @@ export const createNewChannel = async (req, res) => {
     const imageUrl = req.body.image_url;
 
     const channel = await channelsModel.createNewChannel(userId, name, description, tag, imageUrl);
-    channel.current_user_is_owner = true;
+    channel.role = 'owner';
+    channel.subs_count = 1;
 
     return res.status(201).json({ message: 'New channel created', data: channel });
 }
@@ -27,7 +30,10 @@ export const editChannel = async (req, res) => {
     if (result === 404 || result === 403) {
         return res.sendStatus(statusCode);
     } else {
-        result.current_user_is_owner = true;
+        result.role = 'owner';
+        // TODO optimize
+        const subsCount = await channelsModel.getSubscribersCount(channelId);
+        result.subs_count = subsCount;
         return res.status(200).json({ data: result });
     }
 }
@@ -60,10 +66,16 @@ export const getSubscribers = async (req, res) => {
 export const subscribe = async (req, res) => {
     const userId = req.userId;
     const channelId = req.query.channel_id;
-    
+
     const isSuccess = await channelsModel.subscribe(userId, channelId);
 
     if (isSuccess) {
+        // TODO optimize
+        const channel = await channelsModel.getChannel(channelId);
+        channel.role = 'subscriber';
+        const subsCount = await channelsModel.getSubscribersCount(channelId);
+        channel.subs_count = subsCount;
+        onSubscribeOnChannel(io, { channel: channel }, userId);
         return res.sendStatus(204);
     } else {
         return res.sendStatus(409);
@@ -71,12 +83,23 @@ export const subscribe = async (req, res) => {
 }
 
 export const unsubscribe = async (req, res) => {
-    const userId = req.userId;
+    const currentUserId = req.userId;
+    const deleteUserId = req.query.user_id;
     const channelId = req.query.channel_id;
-    
-    const isSuccess = await channelsModel.unsubscribe(userId, channelId);
+
+    if (deleteUserId) {
+        const channel = await channelsModel.getChannel(channelId);
+        if (channel.owner_id !== currentUserId) {
+            return res.sendStatus(403);
+        }
+    }
+
+    const isSuccess = await channelsModel.unsubscribe(deleteUserId ?? currentUserId, channelId);
 
     if (isSuccess) {
+        // TODO optimize
+        const subsCount = await channelsModel.getSubscribersCount(channelId);
+        onUnsubscribeFromChannel(io, { channel_id: Number(channelId), subs_count: subsCount }, deleteUserId ?? currentUserId);
         return res.sendStatus(204);
     } else {
         return res.sendStatus(404);

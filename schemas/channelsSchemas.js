@@ -44,5 +44,6 @@ export const subsribeOnChannelSchema = z.object({
 export const unsubsribeFromChannelSchema = z.object({ 
     query: z.object({
         channel_id: z.coerce.number().int().positive(),
+        user_id: z.coerce.number().int().positive().nullish()
     }) 
 });

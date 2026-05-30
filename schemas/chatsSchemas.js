@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 export const getChatSchema = z.object({
-    query: z.object({
-        chatId: z.coerce.number().int().positive()
+    params: z.object({
+        chatId: z.string().min(1)
     })
 });
 
