@@ -2,10 +2,11 @@ import * as usersModel from '../models/usersModel.js';
 import * as callsModel from '../models/callsModel.js';
 import { cancelAllCallNotifcationOnOtherDevices, sendCallNotification } from "./notificationService.js";
 import { onMessage } from './websocketService.js';
+import { io } from '../server.js';
 
 export const offersCache = new Map();
 
-export const sendOffer = async (io, data, userId) => {
+export const sendOffer = async (data, userId) => {
     const offer = data.offer;
     const callId = data.call_id;
 
@@ -22,7 +23,7 @@ export const sendOffer = async (io, data, userId) => {
     sendCallNotification(otherUserId, call.id, currentUser);
 }
 
-export const sendAnswer = async (io, data, userId) => {
+export const sendAnswer = async (data, userId) => {
     const answer = data.answer;
     const callId = data.call_id;
 
@@ -42,7 +43,7 @@ export const sendAnswer = async (io, data, userId) => {
 }
 
 // TODO optimize? pg call each time
-export const sendICECandidate = async (io, data, userId) => {
+export const sendICECandidate = async (data, userId) => {
     const candidate = data.candidate;
     const callId = data.call_id;
 
@@ -59,7 +60,7 @@ export const sendICECandidate = async (io, data, userId) => {
     });
 }
 
-export const sendCameraStatus = async (io, data, userId) => {
+export const sendCameraStatus = async (data, userId) => {
     const status = data.status;
     const callId = data.call_id;
 
@@ -76,7 +77,7 @@ export const sendCameraStatus = async (io, data, userId) => {
     });
 }
 
-export const endCallIfExists = async (io, userId, fcmToken) => {
+export const endCallIfExists = async (userId, fcmToken) => {
     const call = await callsModel.getActiveOrPendingCallOfUser(userId);
     if (!call || (call.caller_fcm_token !== fcmToken && call.answerer_fcm_token !== fcmToken)) {
         console.log('Failed attempt to endCallIfExists');
@@ -86,7 +87,7 @@ export const endCallIfExists = async (io, userId, fcmToken) => {
     await endCall(io, { call: call }, userId);
 }
 
-export const endCall = async (io, data, userId) => {
+export const endCall = async (data, userId) => {
     const fcmToken = data.fcm_token;
     const call = data.call;
     const otherUserId = call.caller_id !== userId ? call.caller_id : call.answerer_id;

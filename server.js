@@ -41,8 +41,10 @@ app.use(rateLimitMiddleware);
 
 // Routes
 app.post('/setup', async (req, res) => {
+    // await pool.query("UPDATE channels SET image = 'file-1780136439017-983720777.jpg' WHERE id = 37");
+
     // TODO indexes
-    // await pool.query('CREATE TABLE channels (id INT PRIMARY KEY, owner_id INT NOT NULL, channel_name TEXT NOT NULL, description VARCHAR(200) NOT NULL DEFAULT '', tag VARCHAR(32) UNIQUE NOT NULL, image_url TEXT, is_official BOOLEAN NOT NULL DEFAULT FALSE, created_at BIGINT NOT NULL)');
+    // await pool.query('CREATE TABLE channels (id INT PRIMARY KEY, owner_id INT NOT NULL, channel_name TEXT NOT NULL, description VARCHAR(200) NOT NULL DEFAULT '', tag VARCHAR(32) UNIQUE NOT NULL, image TEXT, is_official BOOLEAN NOT NULL DEFAULT FALSE, created_at BIGINT NOT NULL)');
     // await pool.query('ALTER TABLE chats ADD CONSTRAINT chats_user_chat_unique UNIQUE (user_id, chat_id)');
 
     // try {
@@ -117,9 +119,8 @@ const expressServer = app.listen(PORT, '0.0.0.0', () => {
 });
 
 // websocet
-// TODO this export is not the best solution, it's used in callsController
 export const io = new Server(expressServer);
 
 io.use(verifyWSJWT);
 
-io.on('connection', (socket) => webSocketRouter(io, socket));
+io.on('connection', (socket) => webSocketRouter(socket));

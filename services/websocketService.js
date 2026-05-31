@@ -2,14 +2,14 @@ import * as chatsModel from '../models/chatsModel.js';
 import * as messagesModel from '../models/messagesModel.js';
 import * as usersModel from '../models/usersModel.js';
 import * as onlinesModel from '../models/onlinesModel.js';
-import * as callsModel from '../models/callsModel.js';
 import { sendNotification } from '../services/notificationService.js';
 import { askChatGPT } from './aiService.js';
 import convertUserToSend from '../utills/convertUser.js';
 import pool from '../db.js';
+import { io } from '../server.js';
 
 /// online status
-export const changeOnlineStatus = async (io, isOnline, userId) => {
+export const changeOnlineStatus = async (isOnline, userId) => {
     const result = await onlinesModel.updateOnlineStatus(userId, isOnline);
     console.log('update_online_status userId: ' + userId);
 
@@ -20,7 +20,7 @@ export const changeOnlineStatus = async (io, isOnline, userId) => {
     });
 }
 
-export const typingActivity = async (io, data, userId) => {
+export const typingActivity = async (data, userId) => {
     const chatId = data.chat_id;
     if (isNaN(chatId)) return;
     const otherUserId = await chatsModel.getOtherUserIdByChatId(userId, chatId);
@@ -32,19 +32,24 @@ export const typingActivity = async (io, data, userId) => {
 }
 
 /// channels
-export const onSubscribeOnChannel = async (io, data, userId) => {
+export const onSubscribeOnChannel = async (data, userId) => {
     const channel = data.channel;
     io.in(userId.toString()).emit('subscribe_on_channel', { channel: channel });
 }
 
-export const onUnsubscribeFromChannel = async (io, data, userId) => {
+export const onUnsubscribeFromChannel = async (data, userId) => {
     const channelId = data.channel_id;
     const subsCount = data.subs_count;
     io.in(userId.toString()).emit('unsubscribe_from_channel', { channel_id: channelId, subs_count: subsCount });
 }
 
+export const onChatUpdated = async (data, userId) => {
+    const newChannel = data.channel;
+    io.in(`${newChannel.id}_chat_updates`).emit('channel_edited', { new_channel: newChannel });
+}
+
 /// messages
-export const onReadBeforeTime = async (io, data, userId) => {
+export const onReadBeforeTime = async (data, userId) => {
     const chatId = data.chat_id;
     const beforeTime = data.time;
 
@@ -55,12 +60,12 @@ export const onReadBeforeTime = async (io, data, userId) => {
     }
 }
 
-export const onReadAll = async (io, data, userId) => {
+export const onReadAll = async (data, userId) => {
     data.time = Date.now();
-    await onReadBeforeTime(io, data, userId);
+    await onReadBeforeTime(data, userId);
 }
 
-export const onMessageToAi = async (io, data, userId) => {
+export const onMessageToAi = async (data, userId) => {
     const message = data.message;
     if (!message) {
         onError('Event: onMessageToAi, message is missing');
@@ -83,7 +88,7 @@ export const onMessageToAi = async (io, data, userId) => {
     onMessage(io, newData, Number(process.env.CHAT_BOT_ID));
 }
 
-export const onMessage = async (io, data, userId) => {
+export const onMessage = async (data, userId) => {
     const otherUserId = data.recipient_id;
     const call = data.call;
     const message = call == null ? data.message : JSON.stringify(call);
@@ -154,7 +159,7 @@ export const onMessage = async (io, data, userId) => {
     }
 }
 
-export const onDeleteMessage = async (io, data, userId) => {
+export const onDeleteMessage = async (data, userId) => {
     const client = await pool.connect();
 
     try {
@@ -234,7 +239,7 @@ const onError = (message) => {
     console.log(`WSError ${message}`);
 }
 
-const sendReadEvents = async (io, chatId, senderId, userId, otherUserId, messagesIds) => {
+const sendReadEvents = async (chatId, senderId, userId, otherUserId, messagesIds) => {
     io.in([userId.toString()]).emit('read_messages', {
         chat_id: chatId,
         sender_id: senderId,

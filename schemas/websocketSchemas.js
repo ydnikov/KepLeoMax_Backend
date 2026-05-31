@@ -28,6 +28,10 @@ export const wsSubsribeOnOnlineStatusUpdatesSchema = z.object({
     users_ids: z.array(z.number().int().positive())
 });
 
+export const wsSubsribeOnChatsUpdatesSchema = z.object({
+    ids: z.array(z.number().int().positive())
+});
+
 // WebRTC
 export const wsSendOfferSchema = z.object({
     call_id: z.string(),

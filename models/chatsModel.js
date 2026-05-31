@@ -47,7 +47,7 @@ export const getOtherUserIdByChatId = async (userId, chatId) => {
 
 export const getAllChatsByUserId = async (userId) => {
     const result = await pool.query(`
-        SELECT t1.chat_id as id, t2.user_id as other_user_id, t3.channel_name, t3.owner_id, t3.image_url, t3.is_official, t3.created_at, t3.description, t3.tag
+        SELECT t1.chat_id as id, t2.user_id as other_user_id, t3.channel_name, t3.owner_id, t3.image, t3.is_official, t3.created_at, t3.description, t3.tag
             FROM (SELECT * FROM chats WHERE user_id = $1) AS t1 
         LEFT JOIN chats AS t2 ON t1.chat_id = t2.chat_id AND t2.user_id != $1
         LEFT JOIN channels AS t3 ON t1.chat_id = t3.id

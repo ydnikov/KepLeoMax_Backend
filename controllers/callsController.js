@@ -1,4 +1,3 @@
-import { io } from "../server.js";
 import { endCall, offersCache } from "../services/webRTCService.js";
 import * as callsModel from '../models/callsModel.js';
 import { onMessage } from "../services/websocketService.js";
@@ -35,7 +34,7 @@ export const newCall = async (req, res) => {
     if (otherUserActiveCall) {
         const newCall = await callsModel.insertNewCall(userId, fcmToken, otherUserId, true);
         newCall.notify_other_user = true;
-        onMessage(io, { recipient_id: otherUserId, type: 'call', call: newCall }, userId);
+        onMessage({ recipient_id: otherUserId, type: 'call', call: newCall }, userId);
         return res.status(409).json({ message: 'User is talking now' });
     }
 
@@ -95,7 +94,7 @@ export const declineCall = async (req, res) => {
 
     console.log(`decline call, userId: ${userId}, callId: ${callId}`);
 
-    await endCall(io, { call: call, fcm_token: fcmToken }, userId);
+    await endCall({ call: call, fcm_token: fcmToken }, userId);
 
     // even with end_time endCall should be callde, but we have to return 409
     if (call.end_time) {

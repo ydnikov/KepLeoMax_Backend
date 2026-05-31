@@ -1,6 +1,6 @@
 import pool from "../db.js";
 
-export const createNewChannel = async (ownerId, name, description, tag, imageUrl) => {
+export const createNewChannel = async (ownerId, name, description, tag, image) => {
     const connection = await pool.connect();
 
     await connection.query('BEGIN');
@@ -8,7 +8,7 @@ export const createNewChannel = async (ownerId, name, description, tag, imageUrl
     try {
         const chatResult = await connection.query('INSERT INTO chats (user_id) VALUES ($1) RETURNING chat_id', [ownerId]);
         const chatId = chatResult.rows[0].chat_id;
-        const result = await connection.query('INSERT INTO channels (id, owner_id, channel_name, description, tag, image_url, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *', [chatId, ownerId, name, description, tag, imageUrl, Date.now()]);
+        const result = await connection.query('INSERT INTO channels (id, owner_id, channel_name, description, tag, image, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *', [chatId, ownerId, name, description, tag, image, Date.now()]);
 
         await connection.query('COMMIT');
 
@@ -20,8 +20,10 @@ export const createNewChannel = async (ownerId, name, description, tag, imageUrl
     }
 }
 
-export const editChannel = async (channelId, userId, name, description, tag, imageUrl) => {
-    const result = await pool.query('UPDATE channels SET channel_name = $3, description = $4, tag = $5, image_url = $6 WHERE id = $1 AND owner_id = $2 RETURNING *', [channelId, userId, name, description, tag, imageUrl]);
+export const editChannel = async (channelId, userId, name, description, tag, image) => {
+    const args = [channelId, userId, name, description, tag];
+    if (image !== undefined) args.push(image);
+    const result = await pool.query(`UPDATE channels SET channel_name = $3, description = $4, tag = $5${image !== undefined ? ', image = $6' : ' '} WHERE id = $1 AND owner_id = $2 RETURNING *`, args);
     if (result.rowCount === 0) {
         const channel = await getChannel(channelId);
         if (!channel) return 404;

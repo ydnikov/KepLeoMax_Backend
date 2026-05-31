@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const newChannelSchema = z.object({ 
     body: z.object({
         name: z.string().min(3),
-        image_url: z.string().nullish(),
+        image: z.string().nullish(),
         descirption: z.string().max(200).nullish(),
         tag: z.string().max(32)
     }) 
@@ -15,7 +15,7 @@ export const editChannelSchema = z.object({
     }),
     body: z.object({
         name: z.string().min(3),
-        image_url: z.string().nullish(),
+        image: z.string().nullish(),
         descirption: z.string().max(200).nullish(),
         tag: z.string().max(32)
     }) 
