@@ -1,5 +1,19 @@
 import pool from "../db.js";
 
+/**
+client channelModel:
+    int id,
+    String channel_name,
+    String description,
+    String? image,
+    bool is_official,
+    Enum(owner, subscriber, none, keep_current) role,
+    String tag,
+    int? subs_count
+
+is_channel must be true
+NEVER SEND owner_id to the client
+*/
 export const createNewChannel = async (ownerId, name, description, tag, image) => {
     const connection = await pool.connect();
 
@@ -12,7 +26,11 @@ export const createNewChannel = async (ownerId, name, description, tag, image) =
 
         await connection.query('COMMIT');
 
-        result.rows[0].is_channel = true;
+        const channel = result.rows[0];
+        channel.is_channel = true;
+        channel.subs_count = 1;
+        channel.role = 'owner';
+        delete channel.owner_id;
         return result.rows[0];
     } catch (e) {
         await connection.query('ROLLBACK');
@@ -22,31 +40,69 @@ export const createNewChannel = async (ownerId, name, description, tag, image) =
 
 export const editChannel = async (channelId, userId, name, description, tag, image) => {
     const args = [channelId, userId, name, description, tag];
+    // check !== undefined, cause image can be null and that will be another logic
     if (image !== undefined) args.push(image);
-    const result = await pool.query(`UPDATE channels SET channel_name = $3, description = $4, tag = $5${image !== undefined ? ', image = $6' : ' '} WHERE id = $1 AND owner_id = $2 RETURNING *`, args);
+    const result = await pool.query(`
+        WITH updated_channel AS (
+            UPDATE channels 
+            SET channel_name = $3, description = $4, tag = $5${image !== undefined ? ', image = $6' : ' '} 
+            WHERE id = $1 AND owner_id = $2 
+            RETURNING *
+        )
+        SELECT channel.*, (
+            SELECT COUNT(1)::int FROM chats WHERE chat_id = $1
+        ) AS subs_count
+        FROM updated_channel AS channel
+        `, args);
+    
     if (result.rowCount === 0) {
-        const channel = await getChannel(channelId);
-        if (!channel) return 404;
+        const channel = await pool.query('SELECT 1 FROM channels WHERE id = $1', [channelId]);
+        if (channel.rowCount === 0) return 404;
         return 403;
     }
-    result.rows[0].is_channel = true;
-    return result.rows[0];
+
+    const channel = result.rows[0];
+    channel.is_channel = true;
+    channel.role = 'owner';
+    delete channel.owner_id;
+    return channel;
 }
 
+// @note doesn't return the role
 export const getChannel = async (channelId) => {
-    const result = await pool.query('SELECT * FROM channels WHERE id = $1', [channelId]);
-    result.rows[0].is_channel = true;
-    return result.rows[0];
+    const result = await pool.query('SELECT *, (SELECT COUNT(1)::int FROM chats WHERE chat_id = $1) as subs_count FROM channels WHERE id = $1', [channelId]);
+    
+    const channel = result.rows[0];
+    if (!channel) return null;
+
+    channel.is_channel = true;
+    return channel;
 }
 
+// @note doesn't return the role
 export const getChannelByTag = async (tag) => {
-    const result = await pool.query('SELECT * FROM channels WHERE tag = $1', [tag]);
-    result.rows[0].is_channel = true;
-    return result.rows[0];
+    const result = await pool.query('SELECT t1.*, (SELECT COUNT(1)::int FROM chats WHERE chat_id = t1.id) as subs_count FROM channels AS t1 WHERE tag = $1', [tag]);
+    
+    const channel = result.rows[0];
+    if (!channel) return null;
+
+    channel.is_channel = true;
+    return channel;
+}
+
+export const checkUserIsOwner = async (channelId, userId) => {
+    const result = await pool.query('SELECT owner_id FROM channels WHERE id = $1', [channelId]);
+    if (result.rowCount === 0) {
+        return 404;
+    } else if (result.rows[0].owner_id !== userId) {
+        return 403;
+    }
+
+    return 200;
 }
 
 export const getSubscribersCount = async (channelId) => {
-    const result = await pool.query('SELECT COUNT(*) FROM chats WHERE chat_id = $1', [channelId]);
+    const result = await pool.query('SELECT COUNT(1)::int FROM chats WHERE chat_id = $1', [channelId]);
     return result.rows[0].count;
 }
 

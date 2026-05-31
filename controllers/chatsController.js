@@ -12,19 +12,23 @@ export const getChat = async (req, res) => {
     // get chat
     const chat = isNaN(Number(chatId)) ? await channelsModel.getChannelByTag(chatId) : await chatsModel.getChatById(chatId);
     if (!chat) {
-        return res.status(404).json({ message: `chat with id ${chatId} was not found` });
-    } else if (!chat.owner_id && !(chat.user_ids?.includes(userId) ?? false)) {
-        return res.status(403).json({ message: `user has no permission to this chat` });
+        return res.status(404).json({ message: `Chat with id ${chatId} was not found` });
+    } else if (!chat.is_channel && !(chat.user_ids?.includes(userId) ?? false)) {
+        return res.status(403).json({ message: `User has no permission to this chat` });
     }
 
     const isChannel = chat.is_channel;
 
-    // set other_user
+    // set other_user OR role
     var otherUser;
     if (!isChannel) {
         otherUser = convertUserToSend(await usersModel.getUserById(chat.user_ids.filter(id => id != userId)[0]), req);
-        chat.user_ids = undefined;
+        delete chat.user_ids;
         chat.other_user = otherUser;
+    } else {
+        chat.role = chat.owner_id === userId ? 'owner' :
+            (await channelsModel.isUserSubscribed(userId, chat.id)) ? 'subscriber' : 'none';
+        delete chat.owner_id;
     }
 
     // set last_message
@@ -50,11 +54,6 @@ export const getChat = async (req, res) => {
         chat.unread_count = 0;
     }
 
-    if (isChannel) {
-        chat.role = chat.owner_id === userId ? 'owner' :
-            (await channelsModel.isUserSubscribed(userId, chat.id)) ? 'subscriber' : 'none';
-    }
-
     return res.status(200).json({ data: chat });
 }
 
@@ -64,6 +63,7 @@ export const getChats = async (req, res) => {
     // get chats
     const chats = await chatsModel.getAllChatsByUserId(userId);
 
+    // TODO optimize
     // set additional values
     for (let i = 0; i < chats.length; i++) {
         // set other_user
@@ -94,14 +94,12 @@ export const getChats = async (req, res) => {
         }
 
         // delete channel fields if it's not a channel
-        if (!chats[i].owner_id) {
-            chats[i].is_channel = false;
+        if (!chats[i].is_channel) {
             delete chats[i].owner_id;
             delete chats[i].channel_name;
             delete chats[i].image_url;
             delete chats[i].is_official;
         } else {
-            chats[i].is_channel = true;
             chats[i].role = chats[i].owner_id === userId ? 'owner' : 'subscriber';
             delete chats[i].owner_id;
         }

@@ -16,7 +16,7 @@ export const createNewChat = async (userId1, userId2, client = pool) => {
 
 // TODO optimize
 export const getChatById = async (chatId) => {
-    const channelResult = await pool.query('SELECT * FROM channels WHERE id = $1', [chatId]);
+    const channelResult = await pool.query('SELECT *, (SELECT COUNT(1)::int FROM chats WHERE chat_id = $1) as subs_count FROM channels WHERE id = $1', [chatId]);
     if (channelResult.rows.length > 0) {
         channelResult.rows[0].is_channel = true;
         return channelResult.rows[0];
@@ -52,6 +52,9 @@ export const getAllChatsByUserId = async (userId) => {
         LEFT JOIN chats AS t2 ON t1.chat_id = t2.chat_id AND t2.user_id != $1
         LEFT JOIN channels AS t3 ON t1.chat_id = t3.id
         `, [userId]);
+    result.rows.forEach(chat => {
+        chat.is_channel = !!chat.channel_name;
+    });
     return result.rows;
 }
 
@@ -62,9 +65,9 @@ export const getChatOfUsers = async (userId1, userId2, client = pool) => {
     } else {
         const chat = result.rows[0];
         chat.id = chat.chat_id;
-        chat.chat_id = undefined;
-        chat.user_id = undefined;
-        chat.row_id = undefined;
+        delete chat.chat_id;
+        delete chat.user_id;
+        delete chat.row_id;
         return chat;
     }
 }

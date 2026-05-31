@@ -116,8 +116,8 @@ export const endCall = async (data, userId) => {
 
     // send chat message
     call.notify_other_user = userId === call.caller_id;
-    call.caller_fcm_token = undefined;
-    call.answerer_fcm_token = undefined;
+    delete call.caller_fcm_token;
+    delete call.answerer_fcm_token;
     const newData = {
         recipient_id: call.answerer_id,
         call: call,

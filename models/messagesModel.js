@@ -53,8 +53,8 @@ export const setMessageIsRead = async (messageId) => {
 }
 
 export const getUnreadCount = async (chatId) => {
-    const result = await pool.query('SELECT COUNT(*) FROM messages WHERE chat_id = $1 AND is_read = FALSE', [chatId]);
-    return Number(result.rows[0].count);
+    const result = await pool.query('SELECT COUNT(1)::int FROM messages WHERE chat_id = $1 AND is_read = FALSE', [chatId]);
+    return result.rows[0].count;
 }
 
 export const readMessages = async (chatId, currentUser, time, client = pool) => {
