@@ -1,5 +1,5 @@
 import * as channelsModel from '../models/channelsModel.js';
-import { onChatUpdated, onSubscribeOnChannel, onUnsubscribeFromChannel } from '../services/websocketService.js';
+import { onChatUpdated, onSubscribeOnChannel, onUnsubscribeFromChannel, onChannelDeleted } from '../services/websocketService.js';
 import convertUserToSend from '../utills/convertUser.js';
 
 export const createNewChannel = async (req, res) => {
@@ -10,6 +10,7 @@ export const createNewChannel = async (req, res) => {
     const image = req.body.image;
 
     const channel = await channelsModel.createNewChannel(userId, name, description, tag, image);
+    onSubscribeOnChannel({ channel: channel }, userId);
 
     return res.status(201).json({ message: 'New channel created', data: channel });
 }
@@ -35,6 +36,21 @@ export const editChannel = async (req, res) => {
     }
 }
 
+export const deleteChannel = async (req, res) => {
+    const userId = req.userId;
+    const channelId = req.query.channel_id;
+
+    const result = await channelsModel.deleteChannel(channelId, userId);
+
+    if (!Array.isArray(result)) {
+        return res.sendStatus(result);
+    }
+
+    onChannelDeleted({ channel_id: Number(channelId), users_ids: result }, userId);
+
+    return res.sendStatus(204);
+}
+
 export const getSubscribersCount = async (req, res) => {
     const channelId = req.query.channel_id;
 
@@ -55,7 +71,7 @@ export const getSubscribers = async (req, res) => {
     }
 
     const subs = await channelsModel.getSubscribers(channelId, limit, cursor);
-    return res.status(200).json({ data: subs.map(u => convertUserToSend(u, req)), limit: limit, cursor: cursor });
+    return res.status(200).json({ data: subs.map(u => convertUserToSend(u, req)), total_count: subs[0]?.total_count, limit: limit, cursor: cursor });
 }
 
 export const subscribe = async (req, res) => {

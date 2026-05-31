@@ -21,6 +21,12 @@ export const editChannelSchema = z.object({
     }) 
 });
 
+export const deleteChannelSchema = z.object({ 
+    query: z.object({
+        channel_id: z.coerce.number().int().positive()
+    }),
+});
+
 export const subsCountSchema = z.object({ 
     query: z.object({
         channel_id: z.coerce.number().int().positive(),

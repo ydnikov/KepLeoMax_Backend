@@ -43,6 +43,12 @@ export const onUnsubscribeFromChannel = async (data, userId) => {
     io.in(userId.toString()).emit('unsubscribe_from_channel', { channel_id: channelId, subs_count: subsCount });
 }
 
+export const onChannelDeleted = async (data, userId) => {
+    const channelId = data.channel_id;
+    const usersIds = data.users_ids;
+    io.in(usersIds.map(id => id.toString())).emit('unsubscribe_from_channel', { channel_id: channelId, subs_count: 0 });
+}
+
 export const onChatUpdated = async (data, userId) => {
     const newChannel = data.channel;
     io.in(`${newChannel.id}_chat_updates`).emit('channel_edited', { new_channel: newChannel });

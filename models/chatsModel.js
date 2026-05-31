@@ -3,13 +3,13 @@ import pool from "../db.js";
 export const createNewChat = async (userId1, userId2, client = pool) => {
     const result = await client.query(`
         WITH new_chat AS (
-            INSERT INTO chats (user_id) 
-            VALUES ($1) 
+            INSERT INTO chats (user_id, created_at) 
+            VALUES ($1, $3) 
             RETURNING chat_id
         )
-        INSERT INTO chats (user_id, chat_id) SELECT $2, chat_id FROM new_chat
+        INSERT INTO chats (user_id, chat_id, created_at) SELECT $2, chat_id, $3 FROM new_chat
         RETURNING chat_id
-    `, [userId1, userId2]);
+    `, [userId1, userId2, Date.now()]);
 
     return result.rows[0].chat_id;
 }
@@ -29,6 +29,7 @@ export const getChatById = async (chatId) => {
         const chat = {
             id: Number(chatId),
             user_ids: result.rows.map(row => row.user_id),
+            created_at: Math.min(...result.rows.map(row => row.created_at)),
             is_channel: false
         };
         return chat;
@@ -47,13 +48,21 @@ export const getOtherUserIdByChatId = async (userId, chatId) => {
 
 export const getAllChatsByUserId = async (userId) => {
     const result = await pool.query(`
-        SELECT t1.chat_id as id, t2.user_id as other_user_id, t3.channel_name, t3.owner_id, t3.image, t3.is_official, t3.created_at, t3.description, t3.tag
+        SELECT t1.chat_id as id, t1.created_at, t2.user_id as other_user_id, t3.channel_name, t3.owner_id, t3.image, t3.is_official, t3.description, t3.tag
             FROM (SELECT * FROM chats WHERE user_id = $1) AS t1 
         LEFT JOIN chats AS t2 ON t1.chat_id = t2.chat_id AND t2.user_id != $1
         LEFT JOIN channels AS t3 ON t1.chat_id = t3.id
         `, [userId]);
     result.rows.forEach(chat => {
         chat.is_channel = !!chat.channel_name;
+        if (!chat.is_channel) {
+            delete chat.channel_name;
+            delete chat.owner_id;
+            delete chat.image;
+            delete chat.is_official;
+            delete chat.description;
+            delete chat.tag;
+        }
     });
     return result.rows;
 }

@@ -42,6 +42,8 @@ app.use(rateLimitMiddleware);
 // Routes
 app.post('/setup', async (req, res) => {
     // await pool.query("UPDATE channels SET image = 'file-1780136439017-983720777.jpg' WHERE id = 37");
+    // await pool.query('ALTER TABLE chats ADD COLUMN created_at BIGINT NOT NULL DEFAULT 0');
+    // await pool.query('ALTER TABLE chats ALTER COLUMN created_at DROP DEFAULT');
 
     // TODO indexes
     // await pool.query('CREATE TABLE channels (id INT PRIMARY KEY, owner_id INT NOT NULL, channel_name TEXT NOT NULL, description VARCHAR(200) NOT NULL DEFAULT '', tag VARCHAR(32) UNIQUE NOT NULL, image TEXT, is_official BOOLEAN NOT NULL DEFAULT FALSE, created_at BIGINT NOT NULL)');
