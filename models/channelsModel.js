@@ -67,8 +67,8 @@ export const editChannel = async (channelId, userId, name, description, tag, ima
 export const getChannel = async (channelId) => {
     const result = await pool.query('SELECT *, (SELECT COUNT(1)::int FROM chats WHERE chat_id = $1) as subs_count FROM channels WHERE id = $1', [channelId]);
 
+    if (result.rowCount === 0) return null;
     const channel = result.rows[0];
-    if (!channel) return null;
 
     channel.is_channel = true;
     return channel;
@@ -78,9 +78,9 @@ export const getChannel = async (channelId) => {
 export const getChannelByTag = async (tag) => {
     const result = await pool.query('SELECT t1.*, (SELECT COUNT(1)::int FROM chats WHERE chat_id = t1.id) as subs_count FROM channels AS t1 WHERE tag = $1', [tag]);
 
+    if (result.rowCount === 0) return null;
+    
     const channel = result.rows[0];
-    if (!channel) return null;
-
     channel.is_channel = true;
     return channel;
 }
@@ -141,11 +141,19 @@ export const isUserSubscribed = async (userId, channelId) => {
 export const subscribe = async (userId, channelId) => {
     const result = await pool.query(`
         INSERT INTO chats (user_id, chat_id, created_at)
-        VALUES ($1, $2, $3)
+        SELECT $1, $2, $3
+            WHERE EXISTS (SELECT 1 FROM channels WHERE id = $2)
         ON CONFLICT (user_id, chat_id) DO NOTHING
         RETURNING 1
     `, [userId, channelId, Date.now()]);
-    return result.rowCount === 1;
+
+    if (result.rowCount === 0) {
+        const channelResult = await pool.query('SELECT 1 FROM channels WHERE id = $1', [channelId]);
+        if (channelResult.rowCount === 0) return 404;
+        return 409;
+    }
+
+    return 200;
 }
 
 // TODO check that userId is not owner

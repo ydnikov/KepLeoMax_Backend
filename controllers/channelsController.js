@@ -78,15 +78,15 @@ export const subscribe = async (req, res) => {
     const userId = req.userId;
     const channelId = req.query.channel_id;
 
-    const isSuccess = await channelsModel.subscribe(userId, channelId);
+    const result = await channelsModel.subscribe(userId, channelId);
 
-    if (isSuccess) {
+    if (result === 200) {
         const channel = await channelsModel.getChannel(channelId);
         channel.role = 'subscriber';
         onSubscribeOnChannel({ channel: channel }, userId);
         return res.sendStatus(204);
     } else {
-        return res.sendStatus(409);
+        return res.sendStatus(result);
     }
 }
 

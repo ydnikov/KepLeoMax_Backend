@@ -8,6 +8,9 @@ export const getMessagesByChatId = async (req, res) => {
     const cursor = req.query.cursor; // int, messageId
 
     const chat = await chatsModel.getChatById(chatId);
+    if (!chat) {
+        return res.sendStatus(404);
+    }
     if (!chat.is_channel && !(chat.user_ids?.includes(userId) ?? false)) {
         return res.sendStatus(403);
     }
