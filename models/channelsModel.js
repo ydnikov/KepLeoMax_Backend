@@ -19,8 +19,8 @@ export const createNewChannel = async (ownerId, name, description, tag, image) =
         WITH inserted_chat AS (
             INSERT INTO chats (user_id, created_at) VALUES ($1, $2) RETURNING chat_id
         )
-        INSERT INTO channels (id, owner_id, channel_name, description, tag, image, created_at)
-            SELECT chat.chat_id, $1, $3, $4, $5, $6, $2 
+        INSERT INTO channels (id, owner_id, channel_name, description, tag, image, created_at, subs_count)
+            SELECT chat.chat_id, $1, $3, $4, $5, $6, $2, 1
         FROM inserted_chat AS chat RETURNING *
     `, [ownerId, Date.now(), name, description, tag, image]);
 
@@ -44,9 +44,7 @@ export const editChannel = async (channelId, userId, name, description, tag, ima
             WHERE id = $1 AND owner_id = $2 
             RETURNING *
         )
-        SELECT channel.*, (
-            SELECT COUNT(1)::int FROM chats WHERE chat_id = $1
-        ) AS subs_count
+        SELECT channel.*
         FROM updated_channel AS channel
         `, args);
 
@@ -65,7 +63,7 @@ export const editChannel = async (channelId, userId, name, description, tag, ima
 
 // @note doesn't return the role
 export const getChannel = async (channelId) => {
-    const result = await pool.query('SELECT *, (SELECT COUNT(1)::int FROM chats WHERE chat_id = $1) as subs_count FROM channels WHERE id = $1', [channelId]);
+    const result = await pool.query('SELECT * FROM channels WHERE id = $1', [channelId]);
 
     if (result.rowCount === 0) return null;
     const channel = result.rows[0];
@@ -76,10 +74,10 @@ export const getChannel = async (channelId) => {
 
 // @note doesn't return the role
 export const getChannelByTag = async (tag) => {
-    const result = await pool.query('SELECT t1.*, (SELECT COUNT(1)::int FROM chats WHERE chat_id = t1.id) as subs_count FROM channels AS t1 WHERE tag = $1', [tag]);
+    const result = await pool.query('SELECT * FROM channels WHERE tag = $1', [tag]);
 
     if (result.rowCount === 0) return null;
-    
+
     const channel = result.rows[0];
     channel.is_channel = true;
     return channel;
@@ -111,11 +109,6 @@ export const checkUserIsOwner = async (channelId, userId) => {
     }
 
     return 200;
-}
-
-export const getSubscribersCount = async (channelId) => {
-    const result = await pool.query('SELECT COUNT(1)::int FROM chats WHERE chat_id = $1', [channelId]);
-    return result.rows[0].count;
 }
 
 export const getSubscribers = async (channelId, limit, cursor) => {
@@ -158,6 +151,16 @@ export const subscribe = async (userId, channelId) => {
 
 // TODO check that userId is not owner
 export const unsubscribe = async (userId, channelId) => {
-    const result = await pool.query('DELETE FROM chats WHERE user_id = $1 AND chat_id = $2', [userId, channelId]);
-    return result.rowCount === 1;
+    // chats has trigger to decrease subs_count, but that specific case requires (subs_count - 1)
+    const result = await pool.query(`
+        WITH deleted AS (DELETE FROM chats WHERE user_id = $1 AND chat_id = $2 RETURNING chat_id)
+        SELECT (subs_count - 1) AS subs_count FROM channels WHERE id = (SELECT chat_id FROM deleted)
+    `, [userId, channelId]);
+    if (result.rowCount === 0) {
+        const channelResult = await pool.query('SELECT 1 FROM channels WHERE id = $1', [channelId]);
+        if (channelResult.rowCount === 0) return { success: false, code: 404 };
+        return { success: false, code: 409 };
+    }
+
+    return { success: true, subs_count: result.rows[0].subs_count };
 }

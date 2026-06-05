@@ -16,7 +16,7 @@ export const createNewChat = async (userId1, userId2, client = pool) => {
 
 // TODO optimize
 export const getChatById = async (chatId) => {
-    const channelResult = await pool.query('SELECT *, (SELECT COUNT(1)::int FROM chats WHERE chat_id = $1) as subs_count FROM channels WHERE id = $1', [chatId]);
+    const channelResult = await pool.query('SELECT * FROM channels WHERE id = $1', [chatId]);
     if (channelResult.rows.length > 0) {
         channelResult.rows[0].is_channel = true;
         return channelResult.rows[0];
@@ -48,7 +48,7 @@ export const getOtherUserIdByChatId = async (userId, chatId) => {
 
 export const getAllChatsByUserId = async (userId) => {
     const result = await pool.query(`
-        SELECT t1.chat_id as id, t1.created_at, t2.user_id as other_user_id, t3.channel_name, t3.owner_id, t3.image, t3.is_official, t3.description, t3.tag
+        SELECT t1.chat_id as id, t1.created_at, t2.user_id as other_user_id, t3.channel_name, t3.owner_id, t3.image, t3.is_official, t3.description, t3.tag, t3.subs_count
             FROM (SELECT * FROM chats WHERE user_id = $1) AS t1 
         LEFT JOIN chats AS t2 ON t1.chat_id = t2.chat_id AND t2.user_id != $1
         LEFT JOIN channels AS t3 ON t1.chat_id = t3.id

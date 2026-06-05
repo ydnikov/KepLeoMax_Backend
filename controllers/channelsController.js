@@ -51,27 +51,19 @@ export const deleteChannel = async (req, res) => {
     return res.sendStatus(204);
 }
 
-export const getSubscribersCount = async (req, res) => {
-    const channelId = req.query.channel_id;
-
-    const count = await channelsModel.getSubscribersCount(channelId);
-
-    return res.status(200).json({ count: count });
-}
-
 export const getSubscribers = async (req, res) => {
     const userId = req.userId;
     const channelId = req.query.channel_id;
     const limit = req.query.limit ?? 20;
     const cursor = req.query.cursor ?? -1; // last userId
 
-    const checkResult = await channelsModel.checkUserIsOwner(channelId, userId);
-    if (checkResult !== 200) {
-        return res.sendStatus(checkResult);
+    const channel = await channelsModel.getChannel(channelId);
+    if (!channel || channel.owner_id !== userId) {
+        return res.sendStatus(403);
     }
 
     const subs = await channelsModel.getSubscribers(channelId, limit, cursor);
-    return res.status(200).json({ data: subs.map(u => convertUserToSend(u, req)), total_count: subs[0]?.total_count, limit: limit, cursor: cursor });
+    return res.status(200).json({ data: subs.map(u => convertUserToSend(u, req)), total_count: channel.subs_count, limit: limit, cursor: cursor });
 }
 
 export const subscribe = async (req, res) => {
@@ -102,13 +94,12 @@ export const unsubscribe = async (req, res) => {
         }
     }
 
-    const isSuccess = await channelsModel.unsubscribe(deleteUserId ?? currentUserId, channelId);
+    const result = await channelsModel.unsubscribe(deleteUserId ?? currentUserId, channelId);
 
-    if (isSuccess) {
-        const subsCount = await channelsModel.getSubscribersCount(channelId);
-        onUnsubscribeFromChannel({ channel_id: Number(channelId), subs_count: subsCount }, deleteUserId ?? currentUserId);
+    if (result.success) {
+        onUnsubscribeFromChannel({ channel_id: Number(channelId), subs_count: result.subs_count }, deleteUserId ?? currentUserId);
         return res.sendStatus(204);
     } else {
-        return res.sendStatus(404);
+        return res.sendStatus(result.code);
     }
 }

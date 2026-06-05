@@ -65,13 +65,13 @@ const webSocket = (socket) => {
     socket.on('subscribe_on_online_status_updates', withValidation(socket, wsSubsribeOnOnlineStatusSchema, async (data) => {
         const rooms = data.users_ids.map(id => `${id}_online_status`)
         await socket.join(rooms);
-        console.log(`subscribe_on_online_status_updates: ${rooms}`);
+        // console.log(`subscribe_on_online_status_updates: ${rooms}`);
     }));
 
     socket.on('subscribe_on_chats_updates', withValidation(socket, wsSubsribeOnChatsUpdatesSchema, async (data) => {
         const rooms = data.ids.map(id => `${id}_chat_updates`);
         await socket.join(rooms);
-        console.log(`subscribe_on_chats_updates: ${rooms}`);
+        // console.log(`subscribe_on_chats_updates: ${rooms}`);
     }));
 
     socket.on('activity_detected', withValidation(socket, wsActivityDetectedSchema, (data) =>
