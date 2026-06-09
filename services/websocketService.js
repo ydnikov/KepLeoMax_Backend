@@ -2,7 +2,8 @@ import * as chatsModel from '../models/chatsModel.js';
 import * as messagesModel from '../models/messagesModel.js';
 import * as usersModel from '../models/usersModel.js';
 import * as onlinesModel from '../models/onlinesModel.js';
-import { sendNotification } from '../services/notificationService.js';
+import * as channelsModel from '../models/channelsModel.js';
+import { sendNotification, sendNotificationToTopic } from '../services/notificationService.js';
 import { askChatGPT } from './aiService.js';
 import convertUserToSend from '../utills/convertUser.js';
 import pool from '../db.js';
@@ -77,7 +78,7 @@ export const onMessageToAi = async (data, userId) => {
         return;
     }
 
-    /// todo optimize
+    /// TODO optimize
     const chat = await chatsModel.getChatOfUsers(userId, process.env.CHAT_BOT_ID);
     var messages;
     if (!chat) {
@@ -162,6 +163,20 @@ export const onMessage = async (data, userId) => {
     } finally {
         client.release();
     }
+}
+
+export const onMessageInChannel = async (data, userId) => {
+    const channelId = data.channel_id;
+    const message = data.message;
+
+    const channel = await channelsModel.getChannel(channelId);
+    if (!channel || channel.owner_id !== userId) return;
+
+    const newMessage = await messagesModel.createNewMessage(channelId, userId, message, 'post');
+
+    io.in(`${channelId}_chat_updates`).emit('new_message', { message: newMessage });
+
+    sendNotificationToTopic(`${channelId}_chat_updates`, channel.channel_name, newMessage.message);
 }
 
 export const onDeleteMessage = async (data, userId) => {

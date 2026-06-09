@@ -7,11 +7,13 @@ admin.initializeApp({
     credential: admin.credential.cert('./kepleomax-firebase-adminsdk.json')
 });
 
+// TODO add notification bloc to all methods that I can
 export const cancelAllCallNotifcationOnOtherDevices = async (userId, callId, ignoreToken) => {
     const tokens = (await fcmModel.getAllTokensByUserId(userId));
     if (tokens.length < 2) return;
 
     const messages = tokens.filter(t => t.fcm_token !== ignoreToken).map(token => ({
+        token: token.fcm_token,
         data: {
             type: 'stop_all_calls_on_this_device',
             call_id: callId.toString(),
@@ -19,7 +21,6 @@ export const cancelAllCallNotifcationOnOtherDevices = async (userId, callId, ign
         android: {
             priority: 'high',
         },
-        token: token.fcm_token,
     }));
     await sendEach(messages);
 }
@@ -29,6 +30,7 @@ export const sendCallNotification = async (toUser, callId, currentUser) => {
     if (!tokens || tokens.length === 0) return;
 
     const messages = tokens.map(token => ({
+        token: token.fcm_token,
         data: {
             type: 'incoming_call',
             id: callId.toString(),
@@ -37,9 +39,23 @@ export const sendCallNotification = async (toUser, callId, currentUser) => {
         android: {
             priority: 'high',
         },
-        token: token.fcm_token,
     }));
     await sendEach(messages);
+}
+
+export const sendNotificationToTopic = async (topic, title, body, externalData) => {
+    const message = {
+        topic: topic,
+        data: {
+            ...externalData,
+            title: title,
+            body: body
+        },
+        android: {
+            priority: 'high',
+        },
+    };
+    await getMessaging().send(message);
 }
 
 export const sendNotification = async (userId, title, body, externalData) => {
@@ -47,6 +63,7 @@ export const sendNotification = async (userId, title, body, externalData) => {
     if (!tokens || tokens.length === 0) return;
 
     const messages = tokens.map(token => ({
+        token: token.fcm_token,
         // title and body should be in the data, not in the notification
         // for right handling background notifications
         data: {
@@ -61,7 +78,6 @@ export const sendNotification = async (userId, title, body, externalData) => {
             //     channel_id: 'high_importance_channel'
             // }
         },
-        token: token.fcm_token,
     }));
     await sendEach(messages);
 }

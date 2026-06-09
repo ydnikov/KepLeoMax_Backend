@@ -1,7 +1,7 @@
 import { rateLimiter } from '../middleware/tokenBucket.js';
-import { wsActivityDetectedSchema, wsDeleteMessageSchema, wsMessageSchema, wsReadAllSchema, wsReadBeforeTimeSchema, wsSendAnswerSchema, wsSendCameraStatusSchema, wsSendIceCandidateSchema, wsSendOfferSchema, wsSubsribeOnChatsUpdatesSchema, wsSubsribeOnOnlineStatusUpdatesSchema as wsSubsribeOnOnlineStatusSchema, wsTypingActivitySchema } from '../schemas/websocketSchemas.js';
+import { wsActivityDetectedSchema, wsDeleteMessageSchema, wsMessageInChannelSchema, wsMessageSchema, wsReadAllSchema, wsReadBeforeTimeSchema, wsSendAnswerSchema, wsSendCameraStatusSchema, wsSendIceCandidateSchema, wsSendOfferSchema, wsSubsribeOnChatsUpdatesSchema, wsSubsribeOnOnlineStatusUpdatesSchema as wsSubsribeOnOnlineStatusSchema, wsTypingActivitySchema } from '../schemas/websocketSchemas.js';
 import { endCallIfExists as endCallIfShould, sendAnswer, sendCameraStatus, sendICECandidate, sendOffer } from '../services/webRTCService.js';
-import { changeOnlineStatus as updateOnlineStatus, onDeleteMessage, onMessage, onMessageToAi, onReadAll, onReadBeforeTime, typingActivity } from '../services/websocketService.js';
+import { changeOnlineStatus as updateOnlineStatus, onDeleteMessage, onMessage, onMessageInChannel, onMessageToAi, onReadAll, onReadBeforeTime, typingActivity } from '../services/websocketService.js';
 
 const withValidation = (socket, schema, callback) => (data) => {
     const result = schema.safeParse(data);
@@ -48,6 +48,10 @@ const webSocket = (socket) => {
         if (data.recipient_id == process.env.CHAT_BOT_ID) {
             onMessageToAi(data, userId);
         }
+    }));
+
+    socket.on('channel_message', withValidation(socket, wsMessageInChannelSchema, (data) => {
+        onMessageInChannel(data, userId);
     }));
 
     socket.on('delete_message', withValidation(socket, wsDeleteMessageSchema, (data) =>

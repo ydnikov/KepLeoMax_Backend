@@ -76,7 +76,7 @@ export const subscribe = async (req, res) => {
         const channel = await channelsModel.getChannel(channelId);
         channel.role = 'subscriber';
         onSubscribeOnChannel({ channel: channel }, userId);
-        return res.sendStatus(204);
+        return res.status(200).json({ data: channel });
     } else {
         return res.sendStatus(result);
     }
@@ -98,7 +98,10 @@ export const unsubscribe = async (req, res) => {
 
     if (result.success) {
         onUnsubscribeFromChannel({ channel_id: Number(channelId), subs_count: result.subs_count }, deleteUserId ?? currentUserId);
-        return res.sendStatus(204);
+        // TODO optimize
+        const channel = await channelsModel.getChannel(channelId);
+        channel.role = 'none';
+        return res.status(200).json({ data: channel });
     } else {
         return res.sendStatus(result.code);
     }

@@ -5,6 +5,11 @@ export const wsMessageSchema = z.object({
     message: z.string().min(1).max(4000),
 });
 
+export const wsMessageInChannelSchema = z.object({
+    channel_id: z.number().int().positive(),
+    message: z.string().min(1).max(4000),
+});
+
 export const wsDeleteMessageSchema = z.object({
     message_id: z.number().int().positive()
 });
