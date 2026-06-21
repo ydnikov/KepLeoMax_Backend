@@ -59,10 +59,14 @@ export const onReadBeforeTime = async (data, userId) => {
     const chatId = data.chat_id;
     const beforeTime = data.time;
 
-    const readMessages = await messagesModel.readMessages(chatId, userId, beforeTime);
-    if (readMessages.length > 0) {
-        const otherUserId = readMessages[0].sender_id;
-        sendReadEvents(io, chatId, readMessages[0].sender_id, userId, otherUserId, readMessages.map(obj => obj.id));
+    const chat = chatsModel.getChatById(chatId);
+    if (chat.is_channel) {
+
+    } else {
+        const readMessages = await messagesModel.readMessages(chatId, userId, beforeTime);
+        if (readMessages.length > 0) {
+            sendReadEvents(chatId, userId, readMessages.map(r => r.id));
+        }
     }
 }
 
@@ -84,14 +88,14 @@ export const onMessageToAi = async (data, userId) => {
     if (!chat) {
         messages = [];
     } else {
-        messages = (await messagesModel.getAllMessagesByChatId(chat.id, 50, null))
+        messages = (await messagesModel.getAllMessagesByChatId(chat.id, userId, 50, null))
     }
     const answer = await askChatGPT(message, messages.reverse());
     const newData = {
         recipient_id: userId,
         message: answer
     };
-    onMessage(io, newData, Number(process.env.CHAT_BOT_ID));
+    onMessage(newData, Number(process.env.CHAT_BOT_ID));
 }
 
 export const onMessage = async (data, userId) => {
@@ -130,7 +134,7 @@ export const onMessage = async (data, userId) => {
         // read messages
         const readMessages = await messagesModel.readMessages(chatId, userId, null, client);
         if (readMessages.length > 0) {
-            sendReadEvents(io, chatId, readMessages[0].sender_id, userId, otherUserId, readMessages.map(obj => obj.id));
+            sendReadEvents(chatId, userId, readMessages);
         }
 
         // send notification
@@ -143,7 +147,7 @@ export const onMessage = async (data, userId) => {
                 other_user: JSON.stringify(convertUserToSend(user))
             });
         } else {
-            if (!call.start_time && call.end_time && call.notify_other_user) {
+            if (!call.start_time && call.end_time && data.notify_other_user) {
                 // send missed call notification
                 const user = await usersModel.getUserById(userId, client);
                 sendNotification(otherUserId, user.username, 'Missed call', {
@@ -184,16 +188,16 @@ export const onDeleteMessage = async (data, userId) => {
 
     try {
         const messageId = data.message_id;
-        const messageToDelete = await messagesModel.getMessageById(messageId);
+        const messageToDelete = await messagesModel.getMessageById(messageId, userId, client);
         if (!messageToDelete || messageToDelete.sender_id != userId) return;
 
         const chatId = messageToDelete.chat_id;
-        const otherUserId = await chatsModel.getOtherUserIdByChatId(userId, chatId);
+        const otherUserId = await chatsModel.getOtherUserIdByChatId(userId, chatId, client);
         if (!otherUserId) {
             onError('Event: onDeleteMessage, otherUser is not found');
             return;
         }
-        const lastTwoMessages = await messagesModel.getAllMessagesByChatId(chatId, 2);
+        const lastTwoMessages = await messagesModel.getAllMessagesByChatId(chatId, userId, 2, null, client);
 
         await messagesModel.deleteMessageById(messageToDelete.id, client);
 
@@ -259,23 +263,34 @@ const onError = (message) => {
     console.log(`WSError ${message}`);
 }
 
-const sendReadEvents = async (chatId, senderId, userId, otherUserId, messagesIds) => {
-    io.in([userId.toString()]).emit('read_messages', {
+const sendReadEvents = async (chatId, currentUserId, messagesIds) => {
+    io.in(`${chatId}_chat_updates`).emit('read_messages', {
         chat_id: chatId,
-        sender_id: senderId,
-        is_current_user: senderId == userId,
-        messages_ids: messagesIds,
-    });
-    io.in([otherUserId.toString()]).emit('read_messages', {
-        chat_id: chatId,
-        sender_id: senderId,
-        is_current_user: senderId == otherUserId,
         messages_ids: messagesIds,
     });
 
-    sendNotification(senderId == otherUserId ? userId : otherUserId, '', '', {
-        chat_id: chatId.toString(),
-        type: 'cancel',
-        ids: JSON.stringify(messagesIds),
+    io.in(currentUserId.toString()).emit('read_messages', {
+        chat_id: chatId,
+        messages_ids: messagesIds,
+        by_current_user: true,
     });
+
+    // io.in([userId.toString()]).emit('read_messages', {
+    //     chat_id: chatId,
+    //     sender_id: senderId,
+    //     is_current_user: senderId == userId,
+    //     messages_ids: messagesIds,
+    // });
+    // io.in([otherUserId.toString()]).emit('read_messages', {
+    //     chat_id: chatId,
+    //     sender_id: senderId,
+    //     is_current_user: senderId == otherUserId,
+    //     messages_ids: messagesIds,
+    // });
+
+    // sendNotification(senderId == otherUserId ? userId : otherUserId, '', '', {
+    //     chat_id: chatId.toString(),
+    //     type: 'cancel',
+    //     ids: JSON.stringify(messagesIds),
+    // });
 }

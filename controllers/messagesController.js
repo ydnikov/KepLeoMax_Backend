@@ -16,7 +16,7 @@ export const getMessagesByChatId = async (req, res) => {
     }
 
     // get messages
-    const messages = await messagesModel.getAllMessagesByChatId(chatId, limit, cursor);
+    const messages = await messagesModel.getAllMessagesByChatId(chatId, userId, limit, cursor);
     messages.forEach(message => {
         message.is_current_user = message.sender_id === userId;
     });

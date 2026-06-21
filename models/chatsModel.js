@@ -37,8 +37,8 @@ export const getChatById = async (chatId) => {
 }
 
 // chat must contain only 2 users for this to works correctly
-export const getOtherUserIdByChatId = async (userId, chatId) => {
-    const result = await pool.query('SELECT * FROM chats WHERE chat_id = $1 AND user_id != $2', [chatId, userId]);
+export const getOtherUserIdByChatId = async (userId, chatId, client = pool) => {
+    const result = await client.query('SELECT * FROM chats WHERE chat_id = $1 AND user_id != $2', [chatId, userId]);
     if (result.rowCount > 1) {
         // chat doesn't contain provided userId
         return null;
@@ -48,11 +48,14 @@ export const getOtherUserIdByChatId = async (userId, chatId) => {
 
 export const getAllChatsByUserId = async (userId) => {
     const result = await pool.query(`
-        SELECT t1.chat_id as id, t1.created_at, t2.user_id as other_user_id, t3.channel_name, t3.owner_id, t3.image, t3.is_official, t3.description, t3.tag, t3.subs_count
-            FROM (SELECT * FROM chats WHERE user_id = $1) AS t1 
+        SELECT
+            DISTINCT ON (t1.chat_id)
+            t1.chat_id as id, t1.created_at, t2.user_id as other_user_id, t3.channel_name, t3.owner_id, t3.image, t3.is_official, t3.description, t3.tag, t3.subs_count
+        FROM (SELECT * FROM chats WHERE user_id = $1) AS t1 
         LEFT JOIN chats AS t2 ON t1.chat_id = t2.chat_id AND t2.user_id != $1
         LEFT JOIN channels AS t3 ON t1.chat_id = t3.id
         `, [userId]);
+
     result.rows.forEach(chat => {
         chat.is_channel = !!chat.channel_name;
         if (!chat.is_channel) {
@@ -64,6 +67,7 @@ export const getAllChatsByUserId = async (userId) => {
             delete chat.tag;
         }
     });
+    
     return result.rows;
 }
 

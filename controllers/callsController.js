@@ -33,8 +33,7 @@ export const newCall = async (req, res) => {
     const otherUserActiveCall = await callsModel.getActiveOrPendingCallOfUser(otherUserId);
     if (otherUserActiveCall) {
         const newCall = await callsModel.insertNewCall(userId, fcmToken, otherUserId, true);
-        newCall.notify_other_user = true;
-        onMessage({ recipient_id: otherUserId, type: 'call', call: newCall }, userId);
+        onMessage({ recipient_id: otherUserId, type: 'call', call: newCall, notify_other_user: true }, userId);
         return res.status(409).json({ message: 'User is talking now' });
     }
 

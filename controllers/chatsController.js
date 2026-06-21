@@ -32,7 +32,7 @@ export const getChat = async (req, res) => {
     }
 
     // set last_message
-    const lastMessage = (await messagesModel.getAllMessagesByChatId(chat.id, 1, null))[0];
+    const lastMessage = (await messagesModel.getAllMessagesByChatId(chat.id, userId, 1, null))[0];
 
     // set unread_count
     if (lastMessage) {
@@ -47,7 +47,7 @@ export const getChat = async (req, res) => {
         if (lastMessage.sender_id === userId) {
             chat.unread_count = 0;
         } else {
-            chat.unread_count = await messagesModel.getUnreadCount(chat.id);
+            chat.unread_count = await messagesModel.getUnreadCount(chat.id, userId);
         }
     } else {
         chat.last_message = null;
@@ -76,7 +76,7 @@ export const getChats = async (req, res) => {
         }
 
         // set last_message
-        const lastMessage = (await messagesModel.getAllMessagesByChatId(chats[i].id, 1, null))[0];
+        const lastMessage = (await messagesModel.getAllMessagesByChatId(chats[i].id, userId, 1, null))[0];
 
         // set unread_count
         if (lastMessage) {
@@ -86,7 +86,7 @@ export const getChats = async (req, res) => {
             if (lastMessage.sender_id === userId) {
                 chats[i].unread_count = 0;
             } else {
-                chats[i].unread_count = await messagesModel.getUnreadCount(chats[i].id);
+                chats[i].unread_count = await messagesModel.getUnreadCount(chats[i].id, userId);
             }
         } else {
             chats[i].last_message = null;

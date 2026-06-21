@@ -84,7 +84,7 @@ export const endCallIfExists = async (userId, fcmToken) => {
         return;
     }
 
-    await endCall(io, { call: call }, userId);
+    await endCall({ call: call }, userId);
 }
 
 export const endCall = async (data, userId) => {
@@ -115,13 +115,13 @@ export const endCall = async (data, userId) => {
     });
 
     // send chat message
-    call.notify_other_user = userId === call.caller_id;
     delete call.caller_fcm_token;
     delete call.answerer_fcm_token;
     const newData = {
         recipient_id: call.answerer_id,
+        notify_other_user: userId === call.caller_id,
         call: call,
         type: 'call',
     };
-    onMessage(io, newData, call.caller_id);
+    onMessage(newData, call.caller_id);
 }

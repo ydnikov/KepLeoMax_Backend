@@ -41,6 +41,9 @@ app.use(rateLimitMiddleware);
 
 // Routes
 app.post('/setup', async (req, res) => {
+    // await pool.query('CREATE TABLE messages_read_statuses (id SERIAL PRIMARY KEY, message_id INT NOT NULL, user_id INT NOT NULL, CONSTRAINT message_reading_constraint UNIQUE (message_id, user_id))');
+    // await pool.query('ALTER TABLE messages DROP COLUMN is_read');
+
     // await pool.query("UPDATE channels SET image = 'file-1780136439017-983720777.jpg' WHERE id = 37");
     // await pool.query('ALTER TABLE chats ADD COLUMN created_at BIGINT NOT NULL DEFAULT 0');
     // await pool.query('ALTER TABLE chats ALTER COLUMN created_at DROP DEFAULT');
@@ -99,7 +102,7 @@ app.post('/setup', async (req, res) => {
     await pool.query('CREATE TABLE chats (row_id SERIAL PRIMARY KEY, user_id INT NOT NULL, chat_id SERIAL NOT NULL, CONSTRAINT chats_user_chat_unique UNIQUE (user_id, chat_id))');
     await pool.query('CREATE INDEX idx_chats_user_id ON chats (user_id)');
 
-    await pool.query("CREATE TABLE messages (id SERIAL PRIMARY KEY, chat_id INT NOT NULL, sender_id INT NOT NULL, message VARCHAR(4000) NOT NULL, type TEXT NOT NULL DEFAULT 'message', is_read BOOLEAN DEFAULT FALSE NOT NULL, created_at BIGINT NOT NULL, edited_at BIGINT)");
+    await pool.query("CREATE TABLE messages (id SERIAL PRIMARY KEY, chat_id INT NOT NULL, sender_id INT NOT NULL, message VARCHAR(4000) NOT NULL, type TEXT NOT NULL DEFAULT 'message', created_at BIGINT NOT NULL, edited_at BIGINT)");
     await pool.query('CREATE INDEX idx_messages_chat_id ON messages (chat_id)');
 
     // TODO better index (also for start_time and end_time)
