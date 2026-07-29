@@ -88,3 +88,11 @@ export const getChatOfUsers = async (userId1, userId2, client = pool) => {
 export const deleteChatById = async (chatId, client = pool) => {
     await client.query('DELETE FROM chats WHERE chat_id = $1', [chatId]);
 }
+
+export const validateAvailableChatsForUser = async (chatIds, userId) => {
+    if (chatIds.length === 0) return [];
+
+    const result = await pool.query('SELECT chat_id FROM chats WHERE user_id = $1 AND chat_id = ANY($2)', [userId, chatIds]);
+
+    return result.rows.map(row => row.chat_id);
+}

@@ -72,11 +72,11 @@ export const subscribe = async (req, res) => {
 
     const result = await channelsModel.subscribe(userId, channelId);
 
-    if (result === 200) {
+    if (result == 200 || result == 409) {
         const channel = await channelsModel.getChannel(channelId);
         channel.role = 'subscriber';
         onSubscribeOnChannel({ channel: channel }, userId);
-        return res.status(200).json({ data: channel });
+        return res.status(result).json({ data: channel });
     } else {
         return res.sendStatus(result);
     }
@@ -97,11 +97,13 @@ export const unsubscribe = async (req, res) => {
     const result = await channelsModel.unsubscribe(deleteUserId ?? currentUserId, channelId);
 
     if (result.success) {
-        onUnsubscribeFromChannel({ channel_id: Number(channelId), subs_count: result.subs_count }, deleteUserId ?? currentUserId);
-        // TODO optimize
+        // TODO optimize getChannel (2 queries)
         const channel = await channelsModel.getChannel(channelId);
-        channel.role = 'none';
-        return res.status(200).json({ data: channel });
+        if (result.code !== 409) {
+            onUnsubscribeFromChannel({ channel_id: Number(channelId), subs_count: channel.subs_count }, deleteUserId ?? currentUserId);
+        }
+        channel.role = !!deleteUserId ? 'owner' : 'none';
+        return res.status(result.code).json({ data: channel });
     } else {
         return res.sendStatus(result.code);
     }

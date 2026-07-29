@@ -61,7 +61,7 @@ export const editChannel = async (channelId, userId, name, description, tag, ima
     return channel;
 }
 
-// @note doesn't return the role
+// @note returned value doesn't contain the role field
 export const getChannel = async (channelId) => {
     const result = await pool.query('SELECT * FROM channels WHERE id = $1', [channelId]);
 
@@ -153,14 +153,13 @@ export const subscribe = async (userId, channelId) => {
 export const unsubscribe = async (userId, channelId) => {
     // chats has trigger to decrease subs_count, but that specific case requires (subs_count - 1)
     const result = await pool.query(`
-        WITH deleted AS (DELETE FROM chats WHERE user_id = $1 AND chat_id = $2 RETURNING chat_id)
-        SELECT (subs_count - 1) AS subs_count FROM channels WHERE id = (SELECT chat_id FROM deleted)
+        DELETE FROM chats WHERE user_id = $1 AND chat_id = $2 RETURNING 1
     `, [userId, channelId]);
     if (result.rowCount === 0) {
         const channelResult = await pool.query('SELECT 1 FROM channels WHERE id = $1', [channelId]);
         if (channelResult.rowCount === 0) return { success: false, code: 404 };
-        return { success: false, code: 409 };
+        return { success: true, code: 409 };
     }
 
-    return { success: true, subs_count: result.rows[0].subs_count };
+    return { success: true, code: 200 };
 }

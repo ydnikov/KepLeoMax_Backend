@@ -1,7 +1,7 @@
 import { rateLimiter } from '../middleware/tokenBucket.js';
 import { wsActivityDetectedSchema, wsDeleteMessageSchema, wsMessageInChannelSchema, wsMessageSchema, wsReadAllSchema, wsReadBeforeTimeSchema, wsSendAnswerSchema, wsSendCameraStatusSchema, wsSendIceCandidateSchema, wsSendOfferSchema, wsSubsribeOnChatsUpdatesSchema, wsSubsribeOnOnlineStatusUpdatesSchema as wsSubsribeOnOnlineStatusSchema, wsTypingActivitySchema } from '../schemas/websocketSchemas.js';
 import { endCallIfExists as endCallIfShould, sendAnswer, sendCameraStatus, sendICECandidate, sendOffer } from '../services/webRTCService.js';
-import { changeOnlineStatus as updateOnlineStatus, onDeleteMessage, onMessage, onMessageInChannel, onMessageToAi, onReadAll, onReadBeforeTime, typingActivity } from '../services/websocketService.js';
+import { changeOnlineStatus as updateOnlineStatus, onDeleteMessage, onMessage, onMessageInChannel, onMessageToAi, onReadAll, onReadBeforeTime, typingActivity, subscribeOnChatsUpdates } from '../services/websocketService.js';
 
 const withValidation = (socket, schema, callback) => (data) => {
     const result = schema.safeParse(data);
@@ -69,13 +69,12 @@ const webSocket = (socket) => {
     socket.on('subscribe_on_online_status_updates', withValidation(socket, wsSubsribeOnOnlineStatusSchema, async (data) => {
         const rooms = data.users_ids.map(id => `${id}_online_status`)
         await socket.join(rooms);
-        // console.log(`subscribe_on_online_status_updates: ${rooms}`);
+        // console.log(`subscribe_on_online_status_updates: ${data.users_ids}`);
     }));
 
     socket.on('subscribe_on_chats_updates', withValidation(socket, wsSubsribeOnChatsUpdatesSchema, async (data) => {
-        const rooms = data.ids.map(id => `${id}_chat_updates`);
-        await socket.join(rooms);
-        // console.log(`subscribe_on_chats_updates: ${rooms}`);
+        subscribeOnChatsUpdates({ ids: data.ids, socket: socket }, userId);
+        // console.log(`subscribe_on_chats_updates: ${data.ids}`);
     }));
 
     socket.on('activity_detected', withValidation(socket, wsActivityDetectedSchema, (data) =>

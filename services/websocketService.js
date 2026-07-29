@@ -259,6 +259,24 @@ export const onDeleteMessage = async (data, userId) => {
     }
 }
 
+// subscriptions
+export const subscribeOnChatsUpdates = async (data, userId) => {
+    const socket = data.socket;
+    const ids = data.ids;
+
+    const validChatsIds = await chatsModel.validateAvailableChatsForUser(ids, userId);
+
+    const rooms = validChatsIds.map(id => `${id}_chat_updates`);
+    await socket.join(rooms);
+    
+    if (validChatsIds.length !== ids.length) {
+        const validSet = new Set(validChatsIds);
+        const failedToValidateList = ids.filter(id => !validSet.has(id));
+        console.log(`user '${userId}' have done failed attempt to subscribe on inaccessible for them chats: ${failedToValidateList}`);
+    }
+}
+
+// helpers
 const onError = (message) => {
     console.log(`WSError ${message}`);
 }
