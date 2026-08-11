@@ -9,28 +9,38 @@ client channelModel:
     bool is_official,
     Enum(owner, subscriber, none, keep_current) role,
     String tag,
-    int? subs_count
+    int? subs_count,
+    int channel_created_at
 
 is_channel must be true
 NEVER SEND owner_id to the client
 */
 export const createNewChannel = async (ownerId, name, description, tag, image) => {
-    const result = await pool.query(`
+    try {
+        const now = Date.now();
+        const result = await pool.query(`
         WITH inserted_chat AS (
             INSERT INTO chats (user_id, created_at) VALUES ($1, $2) RETURNING chat_id
         )
-        INSERT INTO channels (id, owner_id, channel_name, description, tag, image, created_at, subs_count)
-            SELECT chat.chat_id, $1, $3, $4, $5, $6, $2, 1
-        FROM inserted_chat AS chat RETURNING *
-    `, [ownerId, Date.now(), name, description, tag, image]);
+        INSERT INTO channels (id, owner_id, channel_name, description, tag, image, channel_created_at)
+            SELECT chat.chat_id, $1, $3, $4, $5, $6, $2 FROM inserted_chat AS chat 
+        RETURNING *
+    `, [ownerId, now, name, description, tag, image]);
 
 
-    const channel = result.rows[0];
-    channel.is_channel = true;
-    channel.subs_count = 1;
-    channel.role = 'owner';
-    delete channel.owner_id;
-    return result.rows[0];
+        const channel = result.rows[0];
+        channel.is_channel = true;
+        channel.subs_count = 1;
+        channel.role = 'owner';
+        channel.created_at = now;
+        delete channel.owner_id;
+        return { success: true, code: 200, data: result.rows[0] };
+    } catch (error) {
+        if (error.code === '23505' && error.constraint === 'channels_tag_unique') {
+            return { success: false, code: 409 };
+        }
+        throw error;
+    }
 }
 
 export const editChannel = async (channelId, userId, name, description, tag, image) => {
@@ -62,13 +72,24 @@ export const editChannel = async (channelId, userId, name, description, tag, ima
 }
 
 // @note returned value doesn't contain the role field
-export const getChannel = async (channelId) => {
-    const result = await pool.query('SELECT * FROM channels WHERE id = $1', [channelId]);
+export const getChannel = async (channelId, userId) => {
+    const result = await pool.query(`
+        SELECT 
+            c.*,
+            chats.created_at AS created_at
+        FROM channels AS c
+        LEFT JOIN chats AS chats ON chats.chat_id = c.id AND chats.user_id = $2
+        WHERE c.id = $1
+    `, [channelId, userId]);
 
     if (result.rowCount === 0) return null;
-    const channel = result.rows[0];
 
+    const channel = result.rows[0];
     channel.is_channel = true;
+    if (!channel.created_at) {
+        channel.created_at = 0;
+    }
+
     return channel;
 }
 
@@ -83,21 +104,29 @@ export const getChannelByTag = async (tag) => {
     return channel;
 }
 
-export const deleteChannel = async (channelId, userId) => {
+export const deleteChannelWithMessages = async (channelId, userId) => {
     const result = await pool.query(`
         WITH deleted AS (
             DELETE FROM channels WHERE id = $1 AND owner_id = $2 RETURNING id
+        ),
+        deleted_messages AS (
+            DELETE FROM messages WHERE chat_id = (SELECT id FROM deleted)
+        ),
+        deleted_chats AS (
+            DELETE FROM chats WHERE chat_id = (SELECT id FROM deleted)
         )
-        DELETE FROM chats WHERE chat_id = (SELECT id FROM deleted) RETURNING *
+        SELECT 
+            (SELECT COUNT(1) FROM deleted) AS deleted_count,
+            EXISTS (SELECT 1 FROM channels WHERE id = $1) AS channel_still_exists
     `, [channelId, userId]);
 
-    if (result.rowCount === 0) {
-        const channelResult = await pool.query('SELECT FROM channels WHERE id = $1', [channelId]);
-        if (channelResult.rowCount > 0) return 403;
-        return 404;
-    }
+    const { deleted_count, channel_still_exists } = result.rows[0];
 
-    return result.rows.map(row => row.user_id);
+    if (deleted_count === 1) {
+        return { success: true, code: 200 };
+    } else {
+        return { success: false, code: channel_still_exists ? 403 : 404 };
+    }
 }
 
 export const checkUserIsOwner = async (channelId, userId) => {

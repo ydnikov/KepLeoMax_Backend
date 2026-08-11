@@ -13,3 +13,9 @@ export const getChatWithUserSchema = z.object({
         userId: z.coerce.number().int().positive()
     })
 });
+
+export const deleteChatWithMessagesSchema = z.object({
+    query: z.object({
+        chatId: z.coerce.number().int().positive()
+    })
+});

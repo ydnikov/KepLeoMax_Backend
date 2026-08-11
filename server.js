@@ -41,10 +41,11 @@ app.use(rateLimitMiddleware);
 
 // Routes
 app.post('/setup', async (req, res) => {
+    // await pool.query('ALTER TABLE channels RENAME COLUMN created_at TO channel_created_at');
+    // await pool.query('ALTER TABLE chats ADD COLUMN temp BOOLEAN NOT NULL DEFAULT FALSE');
     // await pool.query('CREATE TABLE messages_read_statuses (id SERIAL PRIMARY KEY, message_id INT NOT NULL, user_id INT NOT NULL, CONSTRAINT message_reading_constraint UNIQUE (message_id, user_id))');
     // await pool.query('ALTER TABLE messages DROP COLUMN is_read');
 
-    // await pool.query("UPDATE channels SET image = 'file-1780136439017-983720777.jpg' WHERE id = 37");
     // await pool.query('ALTER TABLE chats ADD COLUMN created_at BIGINT NOT NULL DEFAULT 0');
     // await pool.query('ALTER TABLE chats ALTER COLUMN created_at DROP DEFAULT');
     // await pool.query('ALTER TABLE channels ADD COLUMN subs_count INT NOT NULL DEFAULT 1');
@@ -66,7 +67,7 @@ app.post('/setup', async (req, res) => {
     // await pool.query('CREATE TRIGGER t_channel_subs_count AFTER INSERT OR DELETE ON chats FOR EACH ROW EXECUTE FUNCTION channel_subs_count_trigger();');
 
     // TODO indexes
-    // await pool.query('CREATE TABLE channels (id INT PRIMARY KEY, owner_id INT NOT NULL, channel_name TEXT NOT NULL, description VARCHAR(200) NOT NULL DEFAULT '', subs_count INT NOT NULL, tag VARCHAR(32) UNIQUE NOT NULL, image TEXT, is_official BOOLEAN NOT NULL DEFAULT FALSE, created_at BIGINT NOT NULL)');
+    // await pool.query('CREATE TABLE channels (id INT PRIMARY KEY, owner_id INT NOT NULL, channel_name TEXT NOT NULL, description VARCHAR(200) NOT NULL DEFAULT '', subs_count INT NOT NULL DEFAULT 0, tag VARCHAR(32) UNIQUE NOT NULL, image TEXT, is_official BOOLEAN NOT NULL DEFAULT FALSE, channel_created_at BIGINT NOT NULL)');
     // await pool.query('ALTER TABLE chats ADD CONSTRAINT chats_user_chat_unique UNIQUE (user_id, chat_id)');
 
     // try {
@@ -99,7 +100,7 @@ app.post('/setup', async (req, res) => {
     await pool.query('CREATE TABLE posts (id SERIAL PRIMARY KEY, user_id INT NOT NULL, content VARCHAR(4000) NOT NULL, images VARCHAR(32)[] NOT NULL, users_who_liked_ids INT[], created_at BIGINT NOT NULL, edited_at BIGINT)');
     await pool.query('CREATE INDEX idx_posts_user_id ON posts (user_id)');
 
-    await pool.query('CREATE TABLE chats (row_id SERIAL PRIMARY KEY, user_id INT NOT NULL, chat_id SERIAL NOT NULL, CONSTRAINT chats_user_chat_unique UNIQUE (user_id, chat_id))');
+    await pool.query('CREATE TABLE chats (row_id SERIAL PRIMARY KEY, user_id INT NOT NULL, chat_id SERIAL NOT NULL, temp BOOLEAN NOT NULL DEFAULT FALSE, CONSTRAINT chats_user_chat_unique UNIQUE (user_id, chat_id))');
     await pool.query('CREATE INDEX idx_chats_user_id ON chats (user_id)');
 
     await pool.query("CREATE TABLE messages (id SERIAL PRIMARY KEY, chat_id INT NOT NULL, sender_id INT NOT NULL, message VARCHAR(4000) NOT NULL, type TEXT NOT NULL DEFAULT 'message', created_at BIGINT NOT NULL, edited_at BIGINT)");

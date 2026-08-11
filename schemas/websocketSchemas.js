@@ -1,12 +1,7 @@
 import { z } from 'zod';
 
 export const wsMessageSchema = z.object({
-    recipient_id: z.number().int().positive(),
-    message: z.string().min(1).max(4000),
-});
-
-export const wsMessageInChannelSchema = z.object({
-    channel_id: z.number().int().positive(),
+    chat_id: z.number().int().positive(),
     message: z.string().min(1).max(4000),
 });
 

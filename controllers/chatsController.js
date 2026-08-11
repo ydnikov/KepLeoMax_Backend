@@ -3,6 +3,7 @@ import * as usersModel from '../models/usersModel.js';
 import convertUserToSend from '../utills/convertUser.js';
 import * as messagesModel from '../models/messagesModel.js'
 import * as channelsModel from '../models/channelsModel.js'
+import { onChatDeleted } from '../services/websocketService.js';
 
 // TODO optimize
 export const getChat = async (req, res) => {
@@ -104,9 +105,31 @@ export const getChats = async (req, res) => {
             delete chats[i].owner_id;
         }
     }
-    chats.sort((a, b) => (b.last_message?.created_at ?? b.created_at ?? 0) - (a.last_message?.created_at ?? a.created_at ?? 0));
+
+    chats.sort((a, b) => {
+        const bValue = maxNullable(
+            b.created_at,
+            b.last_message?.created_at
+        );
+        const aValue = maxNullable(
+            a.created_at,
+            a.last_message?.created_at
+        );
+
+        return (bValue ?? 0) - (aValue ?? 0);
+    });
 
     return res.status(200).json({ data: chats });
+}
+
+const maxNullable = (a, b) => {
+    if (!a) {
+        return b;
+    } else if (!b) {
+        return a;
+    } else {
+        return Math.max(a, b);
+    }
 }
 
 // !!! it doesn't return last_message and unread_count
@@ -115,12 +138,34 @@ export const getChatWithUser = async (req, res) => {
     const otherUserId = req.query.userId;
 
     // get chat
-    const chat = await chatsModel.getChatOfUsers(userId, otherUserId);
+    var chat = await chatsModel.getChatOfUsers(userId, otherUserId);
     if (!chat) {
-        return res.status(404).json({ message: `chat with user ${otherUserId} not found` });
-    } else {
-        chat.other_user = convertUserToSend((await usersModel.getUserById(otherUserId)), req);
-        chat.unread_count = 0;
-        return res.status(200).json({ data: chat });
+        // TODO optimize ? two queries
+        const chatId = await chatsModel.createNewChat(userId, otherUserId, true);
+        chat = await chatsModel.getChatById(chatId);
     }
+
+    // TODO optimize ? one more query: getUserById
+    chat.other_user = convertUserToSend((await usersModel.getUserById(otherUserId)), req);
+    chat.unread_count = 0;
+    return res.status(200).json({ data: chat });
+}
+
+export const deleteChatWithMessages = async (req, res) => {
+    const userId = req.userId;
+    const chatId = req.query.chatId;
+
+    const chat = await chatsModel.getChatById(chatId);
+    var result;
+    if (chat.is_channel) {
+        result = await channelsModel.deleteChannelWithMessages(chatId, userId);
+    } else {
+        result = await chatsModel.deleteChatWithMessages(chatId, userId);
+    }
+
+    if (result.success) {
+        onChatDeleted({ chat_id: chatId }, userId);
+    }
+
+    return res.sendStatus(result.code);
 }

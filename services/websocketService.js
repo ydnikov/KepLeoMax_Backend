@@ -23,11 +23,16 @@ export const changeOnlineStatus = async (isOnline, userId) => {
 
 export const typingActivity = async (data, userId) => {
     const chatId = data.chat_id;
-    if (isNaN(chatId)) return;
-    const otherUserId = await chatsModel.getOtherUserIdByChatId(userId, chatId);
-    if (!otherUserId) return;
 
-    io.in(otherUserId.toString()).emit('typing_activity', {
+    // todo optimize? it can be called too often
+    const channel = await channelsModel.getChannel(chatId, userId);
+    if (channel != null) {
+        onError('typing activity in channel');
+        return;
+    }
+
+    io.in(`${chatId}_chat_updates`).emit('typing_activity', {
+        user_id: userId,
         chat_id: chatId,
     });
 }
@@ -49,9 +54,9 @@ export const onChatUpdated = async (data, userId) => {
     io.in(`${newChannel.id}_chat_updates`).emit('channel_edited', { new_channel: newChannel });
 }
 
-export const onChannelDeleted = async (data, userId) => {
-    const channelId = data.channel_id;
-    io.in(`${channelId}_chat_updates`).emit('channel_deleted', { channel_id: channelId });
+export const onChatDeleted = async (data, userId) => {
+    const chatId = data.chat_id;
+    io.in(`${chatId}_chat_updates`).emit('chat_deleted', { chat_id: Number(chatId) });
 }
 
 /// messages
@@ -75,13 +80,172 @@ export const onReadAll = async (data, userId) => {
     await onReadBeforeTime(data, userId);
 }
 
-export const onMessageToAi = async (data, userId) => {
-    const message = data.message;
-    if (!message) {
-        onError('Event: onMessageToAi, message is missing');
-        return;
-    }
+export const onMessage = async (data, userId) => {
+    // TODO fix onMessage in all places, (change otherUserId to chatId), now it's done only in websocket.js
+    const chatId = data.chat_id;
+    const call = data.call;
+    const message = call == null ? data.message : JSON.stringify(call);
+    const type = data.type;
 
+    const client = await pool.connect();
+    var isCommited = false;
+
+    try {
+        await client.query('BEGIN');
+
+        let createdChatInfo = null;
+        const chat = await chatsModel.getChatById(chatId, client);
+
+        if (!chat) {
+            onError(`attempt to write message to not existing chat: ${chatId}`)
+            return;
+        } else if (chat.is_channel) {
+            if (chat.owner_id !== userId) {
+                onError(`attempt to write message to channel, when user doesn't have permission, user: ${userId}, channel: ${chat.id}`);
+                return;
+            }
+
+            const newMessage = await messagesModel.createNewMessage(chat.id, userId, message, 'post');
+            io.in(`${chat.id}_chat_updates`).emit('new_message', { message: newMessage });
+            return;
+        }
+
+        const hasAccessToChat = chat.user_ids.includes(userId);
+        if (!hasAccessToChat) {
+            onError(`attempt to write message to chat, when user doesn't have permission, user: ${userId}, channel: ${chat.id}`);
+            return;
+        }
+
+        // if it's a new chat, change its status
+        if (chat.temp) {
+            const otherUserId = chat.user_ids.filter(id => id !== userId)[0];
+            console.log(`change chat.temp to false: ${chatId}`);
+            chatsModel.changeTempStatus(chatId, false, client);
+            // TODO why not just send the created chat?
+            createdChatInfo = { chat_id: chatId, users_ids: [userId, otherUserId] };
+        }
+
+        // create new message
+        const callIsMissed = call && !call.start_time && call.end_time;
+        const newMessage = await messagesModel.createNewMessage(chatId, userId, message, type, call != null && !callIsMissed, client);
+
+        // send ws event
+        var rooms;
+        if (!createdChatInfo) {
+            rooms = io.in(`${chatId}_chat_updates`);
+        } else {
+            rooms = io.in(createdChatInfo.users_ids.map(id => id.toString()));
+        }
+        rooms.emit('new_message', { message: newMessage, created_chat_info: createdChatInfo });
+        console.log(`new message ${message} emitet to ${chatId}`);
+
+        // read all messages in chat
+        const readMessages = await messagesModel.readMessages(chatId, userId, null, client);
+        if (readMessages.length > 0) {
+            sendReadEvents(chatId, userId, readMessages);
+        }
+
+        // send notification
+        // if (!call) {
+        //     const user = await usersModel.getUserById(userId, client);
+        //     sendNotification(otherUserId, user.username, newMessage.message, {
+        //         chat_id: chatId.toString(),
+        //         type: 'new',
+        //         ids: JSON.stringify([newMessage.id]),
+        //         other_user: JSON.stringify(convertUserToSend(user))
+        //     });
+        // } else {
+        //     if (!call.start_time && call.end_time && data.notify_other_user) {
+        //         // send missed call notification
+        //         const user = await usersModel.getUserById(userId, client);
+        //         sendNotification(otherUserId, user.username, 'Missed call', {
+        //             chat_id: chatId.toString(),
+        //             type: 'new_missed_call',
+        //             call_id: call.id.toString(),
+        //             ids: JSON.stringify([newMessage.id]),
+        //             other_user: JSON.stringify(convertUserToSend(user))
+        //         });
+        //     }
+        // }
+
+        await client.query('COMMIT');
+        isCommited = true;
+    } finally {
+        if (!isCommited) {
+            await client.query('ROLLBACK');
+        }
+        client.release();
+    }
+}
+
+export const onDeleteMessage = async (data, userId) => {
+    const messageId = data.message_id;
+    const client = await pool.connect();
+
+    try {
+        await client.query('BEGIN');
+
+        const messageToDelete = await messagesModel.getMessageById(messageId, userId, client);
+        if (!messageToDelete || messageToDelete.sender_id != userId) {
+            await client.query('ROLLBACK');
+            return;
+        }
+
+        const chatId = messageToDelete.chat_id;
+        const roomName = `${chatId}_chat_updates`;
+        const lastTwoMessages = await messagesModel.getAllMessagesByChatId(chatId, userId, 2, null, client);
+
+        await messagesModel.deleteMessageById(messageToDelete.id, client);
+
+        const messageToSend = { ...messageToDelete };
+        messageToSend['message'] = '_deleted_';
+        if (messageToDelete.id != lastTwoMessages[0].id) {
+            io.in(roomName).emit('deleted_message', {
+                chat_id: chatId,
+                message: messageToSend,
+            });
+        } else {
+            const isChannel = (await channelsModel.getChannel(chatId, userId)) != null;
+
+            const newLastMessage = lastTwoMessages[1];
+            console.log(`delete_message, newLastMessage: ${newLastMessage}`);
+
+            const deleteChat = newLastMessage == null && !isChannel;
+
+            io.in(roomName).emit('deleted_message', {
+                chat_id: chatId,
+                message: messageToSend,
+                new_last_message: newLastMessage,
+                // when deletedMessage is the last from a channel, chat should not be deleted, but last_message should be
+                // set to null. But if server send new_last_message: null, client treats it as there is no need to update
+                // last_message. So if it was the last message from a channel, we send new_last_message: null and this field to true
+                force_new_last_message: newLastMessage == null && isChannel,
+                delete_chat: deleteChat,
+            });
+
+            if (deleteChat) {
+                // deleted message is the last one from the chat
+                await chatsModel.changeTempStatus(chatId, true, client);
+            }
+        }
+
+        await client.query('COMMIT');
+        console.log(`message deleted: ${messageId}, chatId: ${chatId}`);
+
+        // sendNotification(otherUserId, '', '', {
+        //     chat_id: chatId.toString(),
+        //     type: 'cancel',
+        //     ids: JSON.stringify([messageToDelete.id]),
+        // });
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
+}
+
+export const onMessageToAi = async (data, userId) => {
     /// TODO optimize
     const chat = await chatsModel.getChatOfUsers(userId, process.env.CHAT_BOT_ID);
     var messages;
@@ -98,167 +262,6 @@ export const onMessageToAi = async (data, userId) => {
     onMessage(newData, Number(process.env.CHAT_BOT_ID));
 }
 
-export const onMessage = async (data, userId) => {
-    const otherUserId = data.recipient_id;
-    const call = data.call;
-    const message = call == null ? data.message : JSON.stringify(call);
-    const type = data.type;
-
-    const client = await pool.connect();
-
-    try {
-        await client.query('BEGIN');
-
-        let chatId;
-        let createdChatInfo = null;
-        const chat = await chatsModel.getChatOfUsers(userId, otherUserId, client);
-        if (!chat) {
-            console.log(`creating new chat between ${userId} and ${otherUserId}`);
-            chatId = await chatsModel.createNewChat(userId, otherUserId, client);
-            createdChatInfo = { chat_id: chatId, users_ids: [userId, otherUserId] };
-        } else {
-            chatId = chat.id;
-        }
-        console.log(`chat id: ${chatId}, userId: ${userId}, otherUserId: ${otherUserId}`);
-        const callIsMissed = call && !call.start_time && call.end_time;
-        const newMessage = await messagesModel.createNewMessage(chatId, userId, message, type, call != null && !callIsMissed, client);
-
-        newMessage.is_current_user = true;
-        newMessage.other_user_id = otherUserId;
-        io.in(userId.toString()).emit('new_message', { message: newMessage, created_chat_info: createdChatInfo });
-        newMessage.is_current_user = false;
-        newMessage.other_user_id = Number(userId);
-        io.in(otherUserId.toString()).emit('new_message', { message: newMessage, created_chat_info: createdChatInfo });
-        console.log(`new message ${message} emitet to ${userId}, ${otherUserId}`);
-
-        // read messages
-        const readMessages = await messagesModel.readMessages(chatId, userId, null, client);
-        if (readMessages.length > 0) {
-            sendReadEvents(chatId, userId, readMessages);
-        }
-
-        // send notification
-        if (!call) {
-            const user = await usersModel.getUserById(userId, client);
-            sendNotification(otherUserId, user.username, newMessage.message, {
-                chat_id: chatId.toString(),
-                type: 'new',
-                ids: JSON.stringify([newMessage.id]),
-                other_user: JSON.stringify(convertUserToSend(user))
-            });
-        } else {
-            if (!call.start_time && call.end_time && data.notify_other_user) {
-                // send missed call notification
-                const user = await usersModel.getUserById(userId, client);
-                sendNotification(otherUserId, user.username, 'Missed call', {
-                    chat_id: chatId.toString(),
-                    type: 'new_missed_call',
-                    call_id: call.id.toString(),
-                    ids: JSON.stringify([newMessage.id]),
-                    other_user: JSON.stringify(convertUserToSend(user))
-                });
-            }
-        }
-
-        await client.query('COMMIT');
-    } catch (e) {
-        await client.query('ROLLBACK');
-        throw e;
-    } finally {
-        client.release();
-    }
-}
-
-export const onMessageInChannel = async (data, userId) => {
-    const channelId = data.channel_id;
-    const message = data.message;
-
-    const channel = await channelsModel.getChannel(channelId);
-    if (!channel || channel.owner_id !== userId) return;
-
-    const newMessage = await messagesModel.createNewMessage(channelId, userId, message, 'post');
-
-    io.in(`${channelId}_chat_updates`).emit('new_message', { message: newMessage });
-
-    sendNotificationToTopic(`${channelId}_chat_updates`, channel.channel_name, newMessage.message);
-}
-
-export const onDeleteMessage = async (data, userId) => {
-    const client = await pool.connect();
-
-    try {
-        const messageId = data.message_id;
-        const messageToDelete = await messagesModel.getMessageById(messageId, userId, client);
-        if (!messageToDelete || messageToDelete.sender_id != userId) return;
-
-        const chatId = messageToDelete.chat_id;
-        const otherUserId = await chatsModel.getOtherUserIdByChatId(userId, chatId, client);
-        if (!otherUserId) {
-            onError('Event: onDeleteMessage, otherUser is not found');
-            return;
-        }
-        const lastTwoMessages = await messagesModel.getAllMessagesByChatId(chatId, userId, 2, null, client);
-
-        await messagesModel.deleteMessageById(messageToDelete.id, client);
-
-        const messageToSend = { ...messageToDelete };
-        messageToSend['message'] = '_deleted_';
-        if (messageToDelete.id != lastTwoMessages[0].id) {
-            messageToSend['is_current_user'] = messageToSend.sender_id == userId;
-            io.in([userId.toString()]).emit('deleted_message', {
-                chat_id: chatId,
-                message: messageToSend,
-            });
-            messageToSend['is_current_user'] = messageToSend.sender_id == otherUserId;
-            io.in([otherUserId.toString()]).emit('deleted_message', {
-                chat_id: chatId,
-                message: messageToSend,
-            });
-        } else {
-            const newLastMessage = lastTwoMessages[1];
-            console.log(`delete_message, newLastMessage: ${newLastMessage}`);
-            if (newLastMessage) {
-                newLastMessage['is_current_user'] = newLastMessage.sender_id == userId;
-            }
-            messageToSend['is_current_user'] = messageToSend.sender_id == userId;
-            io.in([userId.toString()]).emit('deleted_message', {
-                chat_id: chatId,
-                message: messageToSend,
-                new_last_message: newLastMessage,
-                delete_chat: newLastMessage == null
-            });
-            if (newLastMessage) {
-                newLastMessage['is_current_user'] = newLastMessage.sender_id == otherUserId;
-            }
-            messageToSend['is_current_user'] = messageToSend.sender_id == otherUserId;
-            io.in([otherUserId.toString()]).emit('deleted_message', {
-                chat_id: chatId,
-                message: messageToSend,
-                new_last_message: newLastMessage,
-                delete_chat: newLastMessage == null
-            });
-
-            if (!newLastMessage) {
-                // deleted message is the last one from the chat
-                await chatsModel.deleteChatById(chatId, client);
-            }
-        }
-
-        await client.query('COMMIT');
-
-        sendNotification(otherUserId, '', '', {
-            chat_id: chatId.toString(),
-            type: 'cancel',
-            ids: JSON.stringify([messageToDelete.id]),
-        });
-    } catch (e) {
-        await client.query('ROLLBACK');
-        throw e;
-    } finally {
-        client.release();
-    }
-}
-
 // subscriptions
 export const subscribeOnChatsUpdates = async (data, userId) => {
     const socket = data.socket;
@@ -268,11 +271,11 @@ export const subscribeOnChatsUpdates = async (data, userId) => {
 
     const rooms = validChatsIds.map(id => `${id}_chat_updates`);
     await socket.join(rooms);
-    
+
     if (validChatsIds.length !== ids.length) {
         const validSet = new Set(validChatsIds);
         const failedToValidateList = ids.filter(id => !validSet.has(id));
-        console.log(`user '${userId}' have done failed attempt to subscribe on inaccessible for them chats: ${failedToValidateList}`);
+        console.log(`user '${userId}' just did failed attempt to subscribe on inaccessible for them chats: ${failedToValidateList}, all request ids: ${ids}, valid: ${validChatsIds}`);
     }
 }
 
